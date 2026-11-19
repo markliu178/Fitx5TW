@@ -1758,7 +1758,11 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
             metaState,
             0, // deviceId
             scanCode,
-            KeyEvent.FLAG_FROM_SYSTEM, // flags: mark as coming from system hardware
+            // Keep the physical-keyboard source for KeyCharacterMap compatibility (notably F1-F12),
+            // but these events originate from on-screen macros. Without KEEP_TOUCH_MODE the editor
+            // leaves touch mode when Rime forwards the cached event, and Samsung apps paint their
+            // default keyboard-focus highlight over unrelated floating controls.
+            KeyEvent.FLAG_FROM_SYSTEM or KeyEvent.FLAG_KEEP_TOUCH_MODE,
             InputDevice.SOURCE_KEYBOARD // source: physical keyboard
         )
         Timber.v("sendSimulatedKeyEvent: keyCode=%d scanCode=%d action=%d unicodeChar=%d",

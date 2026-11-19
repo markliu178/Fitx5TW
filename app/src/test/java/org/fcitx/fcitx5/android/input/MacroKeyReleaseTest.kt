@@ -1,5 +1,7 @@
 package org.fcitx.fcitx5.android.input
 
+import android.util.LruCache
+import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.View
 import android.content.Context
@@ -20,6 +22,23 @@ class MacroKeyReleaseTest {
     private class Connection(context: Context) : BaseInputConnection(View(context), false) {
         val events = mutableListOf<KeyEvent>()
         override fun sendKeyEvent(event: KeyEvent): Boolean { events += event; return true }
+    }
+
+    @Test fun macroKeyEventsKeepTouchModeWithoutChangingKeyboardMapping() {
+        val service = Robolectric.buildService(FcitxInputMethodService::class.java).get()
+        service.sendSimulatedKeyEvent(
+            KeyEvent.KEYCODE_1,
+            10,
+            KeyEvent.ACTION_DOWN,
+            fromMacro = true
+        )
+        val cache: LruCache<Int, KeyEvent> = ReflectionHelpers.getField(service, "cachedKeyEvents")
+        val event = cache.snapshot().values.single()
+        assertEquals(
+            KeyEvent.FLAG_FROM_SYSTEM or KeyEvent.FLAG_KEEP_TOUCH_MODE,
+            event.flags and (KeyEvent.FLAG_FROM_SYSTEM or KeyEvent.FLAG_KEEP_TOUCH_MODE)
+        )
+        assertEquals(InputDevice.SOURCE_KEYBOARD, event.source)
     }
 
     @Test fun staleModifierOnlyClearsItsCountWithoutSendingToTheNewEditor() {
