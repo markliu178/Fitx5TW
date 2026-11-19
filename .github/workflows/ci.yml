@@ -1,19 +1,9 @@
 name: Commit CI
 
 on:
+  # 手动触发：维护者在 Actions → Commit CI → Run workflow 中自行出包。
+  # 不再由 push 自动触发，避免在未配置签名 secret 时误跑失败。
   workflow_dispatch:
-  push:
-    branches:
-      - fx-rime-only
-      - feat/direct-rime-prototype
-    tags-ignore:
-      - '[0-9]*'
-      - 'v[0-9]*'
-    paths:
-      - '**/**'
-      - '!*.md'
-      - '!.gitignore'
-      - '!docs/**'
 
 permissions:
   contents: read
