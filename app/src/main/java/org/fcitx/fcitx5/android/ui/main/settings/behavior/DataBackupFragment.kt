@@ -428,8 +428,7 @@ class DataBackupFragment : PaddingPreferenceFragment() {
             summary = operationDetails
             isSelectable = false
             setOnPreferenceClickListener(null)
-            textColor = AppPrefs.getInstance().internal.operationStatusTextColor.getValue()
-            notifyChanged()
+            setStatusTextColor(AppPrefs.getInstance().internal.operationStatusTextColor.getValue())
         }
     }
 
@@ -441,7 +440,14 @@ class DataBackupFragment : PaddingPreferenceFragment() {
     private class StatusPreference(context: android.content.Context) :
         Preference(context), TransparentPreferenceRow {
         var textColor: Int = 0
+            private set
         private var onColorLongClick: (() -> Unit)? = null
+
+        /** [notifyChanged] is protected, so the fragment updates the color through this hook. */
+        fun setStatusTextColor(color: Int) {
+            textColor = color
+            notifyChanged()
+        }
 
         fun setOnColorLongClickListener(listener: () -> Unit) {
             onColorLongClick = listener
