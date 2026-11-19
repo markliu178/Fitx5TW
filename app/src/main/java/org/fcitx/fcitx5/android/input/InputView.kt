@@ -21,6 +21,7 @@ import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.LayerDrawable
+import android.graphics.drawable.StateListDrawable
 import android.graphics.Paint
 import android.graphics.RenderEffect
 import android.graphics.RenderNode
@@ -3323,6 +3324,16 @@ class InputView(
             // although it should be default for apps targeting Honeycomb (3.0, API 11) and higher,
             // but it's not the case on some devices ... just set it here
             isMotionEventSplittingEnabled = true
+            // Transparent StateListDrawable that has a stateful background (so the framework
+            // skips its own default focus highlight paint) but draws nothing in any state.
+            // keyboardView is kept focusable to satisfy OEMs that implicitly expect at least one
+            // focusable view in the IME window (One UI). Without this background, whenever the
+            // window leaves touch mode and focus lands here, the framework paints
+            // ?attr/selectableItemBackground as a full grey overlay over the whole keyboard.
+            background = StateListDrawable().apply {
+                addState(intArrayOf(android.R.attr.state_focused), ColorDrawable(Color.TRANSPARENT))
+                addState(intArrayOf(), ColorDrawable(Color.TRANSPARENT))
+            }
             add(customBackground, lParams(0, 0) {
                 topOfParent()
                 bottomOfParent()
