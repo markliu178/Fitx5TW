@@ -53,7 +53,7 @@ class RimeProfileRestorePlanTest {
 
     @Test fun originalDirectoryIsRecordedAndCanBeFullyRestored() {
         val backup = backup()
-        assertEquals(2, backup.manifest.version)
+        assertEquals(3, backup.manifest.version)
         assertEquals(backup.source.canonicalPath, backup.manifest.originalPaths.getValue("remote"))
         write(backup.source, "my.schema.yaml", "edited-after-backup")
         write(backup.source, "obsolete.userdb", "must-be-removed")

@@ -39,8 +39,15 @@ object UserDataManager {
         val packageName: String,
         val versionCode: Long,
         val versionName: String,
-        val exportTime: Long
+        val exportTime: Long,
+        /** [KIND_FULL] for legacy backups, [KIND_APP] or [KIND_SCHEME] for split backups. */
+        val kind: String = KIND_FULL
     )
+
+    const val KIND_FULL = "full"
+    const val KIND_APP = "app"
+    const val KIND_SCHEME = "scheme"
+    private val backupKinds = setOf(KIND_FULL, KIND_APP, KIND_SCHEME)
 
     // Allow importing user data from any build variant of Fcitx5 Android
     private const val allowedPackageNamePrefix = "org.fcitx.fcitx5.android"
@@ -112,18 +119,46 @@ object UserDataManager {
     private val externalDir get() = appContext.getExternalFilesDir(null)!!
     private val recentlyUsedDir get() = appContext.filesDir.resolve(RecentlyUsed.DIR_NAME)
 
+    private fun writeExternalAppData(zipStream: ZipOutputStream, rimeDirectories: RimeDataDirectoryState) {
+        val root = externalDir.canonicalFile
+        val config = File(root, RimeDataDirectoryState.CONFIG_PATH).canonicalFile
+        val profileDirs = rimeDirectories.profiles
+            .map { File(root, "data/$it").canonicalFile }.toSet()
+        BackupFileTree.write(root, "external", zipStream) { file ->
+            val canonical = file.canonicalFile
+            canonical == config || canonical in profileDirs
+        }
+    }
+
     @OptIn(ExperimentalSerializationApi::class)
     fun export(dest: OutputStream, rimeDirectories: RimeDataDirectoryState,
-               timestamp: Long = System.currentTimeMillis()) = runCatching {
+               timestamp: Long = System.currentTimeMillis(),
+               kind: String = KIND_FULL) = runCatching {
+        require(kind in backupKinds) { "Unknown backup kind." }
         ZipOutputStream(dest.buffered()).use { zipStream ->
-            // shared_prefs (current variant's prefs XML renamed to canonical upstream name)
-            JsVoicePluginStore.withSnapshot { scripts ->
-                writeSharedPrefsTree(sharedPrefsDir, zipStream)
-                writeFileTree(scripts, "js-voice", zipStream) { !it.name.endsWith(".js") }
+            when (kind) {
+                KIND_SCHEME -> RimeProfileBackup.writeProfilesOnly(
+                    externalDir, rimeDirectories, zipStream
+                )
+                KIND_APP -> {
+                    JsVoicePluginStore.withSnapshot { scripts ->
+                        writeSharedPrefsTree(sharedPrefsDir, zipStream)
+                        writeFileTree(scripts, "js-voice", zipStream) { !it.name.endsWith(".js") }
+                    }
+                    writeDatabases(zipStream)
+                    writeExternalAppData(zipStream, rimeDirectories)
+                }
+                else -> {
+                    // shared_prefs (current variant's prefs XML renamed to canonical upstream name)
+                    JsVoicePluginStore.withSnapshot { scripts ->
+                        writeSharedPrefsTree(sharedPrefsDir, zipStream)
+                        writeFileTree(scripts, "js-voice", zipStream) { !it.name.endsWith(".js") }
+                    }
+                    writeDatabases(zipStream)
+                    // external
+                    RimeProfileBackup.write(externalDir, rimeDirectories, zipStream)
+                }
             }
-            writeDatabases(zipStream)
-            // external
-            RimeProfileBackup.write(externalDir, rimeDirectories, zipStream)
             // recently_used moved to SharedPreference and shoud not be exported
             // metadata — write canonical upstream package name so upstream's import accepts it
             zipStream.putNextEntry(ZipEntry("metadata.json"))
@@ -132,7 +167,8 @@ object UserDataManager {
                 canonicalExportPackageName,
                 pkgInfo.versionCodeCompat,
                 Const.versionName,
-                timestamp
+                timestamp,
+                kind
             )
             json.encodeToStream(metadata, zipStream)
             zipStream.closeEntry()
@@ -308,6 +344,7 @@ object UserDataManager {
         val metadataFile = File(directory, "metadata.json")
         require(metadataFile.isFile && metadataFile.length() <= 1024 * 1024)
         val metadata = json.decodeFromString<Metadata>(metadataFile.readText())
+        require(metadata.kind in backupKinds) { "Unknown backup kind." }
         require(isAllowedPackageName(metadata.packageName))
         return PreparedImport(directory, metadata, RimeProfileBackup.readManifest(directory))
     }
@@ -323,6 +360,7 @@ object UserDataManager {
                     ?: errorRuntime(R.string.exception_user_data_metadata)
                 require(metadataFile.length() <= 1024 * 1024) { "Backup metadata is too large." }
                 val metadata = json.decodeFromString<Metadata>(metadataFile.readText())
+                require(metadata.kind in backupKinds) { "Unknown backup kind." }
                 if (!isAllowedPackageName(metadata.packageName)) {
                     errorRuntime(R.string.exception_user_data_package_name_mismatch, metadata.packageName)
                 }
@@ -383,28 +421,36 @@ object UserDataManager {
         validateRestore(prepared, plan)
         val tempDir = prepared.directory
         val metadata = prepared.metadata
-        JsVoicePluginStore.validateBackup(tempDir)
-        if (closeClipboard) ClipboardManager.closeDatabase()
+        val restoreAppData = metadata.kind != KIND_SCHEME
+        val restoreProfiles = metadata.kind != KIND_APP
+        if (restoreAppData) JsVoicePluginStore.validateBackup(tempDir)
+        if (closeClipboard && restoreAppData) ClipboardManager.closeDatabase()
         UserDataRestoreTransaction(journal).use { restore ->
-            restore.stage(sharedPrefsDir) { staged ->
-                copySharedPrefs(File(tempDir, "shared_prefs"), staged, metadata.packageName)
-            }
-            restore.stage(File(appContext.filesDir, "js-voice")) { staged ->
-                copyDir(File(tempDir, "js-voice"), staged)
-            }
-            restore.stage(dataBasesDir) { staged ->
-                copyDatabases(File(tempDir, "databases"), staged)
+            if (restoreAppData) {
+                restore.stage(sharedPrefsDir) { staged ->
+                    copySharedPrefs(File(tempDir, "shared_prefs"), staged, metadata.packageName)
+                }
+                restore.stage(File(appContext.filesDir, "js-voice")) { staged ->
+                    copyDir(File(tempDir, "js-voice"), staged)
+                }
+                restore.stage(dataBasesDir) { staged ->
+                    copyDatabases(File(tempDir, "databases"), staged)
+                }
             }
             restore.stage(externalDir) { staged ->
-                plan.copyApplicationData(tempDir, staged)
+                if (restoreProfiles) {
+                    plan.copyApplicationData(tempDir, staged)
+                } else {
+                    BackupFileTree.copy(File(tempDir, "external"), staged)
+                }
                 normalizeButtonIconPaths(File(staged, "config/ButtonsLayout.json"))
             }
-            if (File(tempDir, "recently_used").exists()) {
+            if (restoreAppData && File(tempDir, "recently_used").exists()) {
                 restore.stage(recentlyUsedDir) { staged ->
                     copyDir(File(tempDir, "recently_used"), staged)
                 }
             }
-            plan.stageExternalProfiles(tempDir, restore)
+            if (restoreProfiles) plan.stageExternalProfiles(tempDir, restore)
             restore.commit()
         }
         metadata

@@ -1080,8 +1080,23 @@
     <string name="settings_group_appearance_summary">Themes, icons and fonts</string>
     <string name="settings_group_convenience">Convenience</string>
     <string name="settings_group_convenience_summary">Clipboard, text editing, symbols and plugin settings</string>
-    <string name="settings_group_data">Data &amp; backup</string>
-    <string name="settings_group_data_summary">User data management and Wanxiang scheme updates</string>
+    <string name="settings_group_data">Backup &amp; restore</string>
+    <string name="settings_group_data_summary">Back up and restore schemes and app data, Wanxiang scheme updates</string>
+    <string name="scheme_export">Export schemes</string>
+    <string name="scheme_export_summary">Export all Rime scheme directories only, without app settings</string>
+    <string name="scheme_restore">Restore schemes</string>
+    <string name="scheme_restore_summary">Restore from a scheme export and choose target directories</string>
+    <string name="app_backup">Back up app</string>
+    <string name="app_backup_summary">Back up keyboard, layout, mappings, themes, clipboard and other non-scheme data</string>
+    <string name="app_restore">Restore app</string>
+    <string name="app_restore_summary">Restore app settings and data without Rime schemes</string>
+    <string name="confirm_restore_scheme">The selected directories will be overwritten with the schemes in this backup; app settings are not affected. Proceed?</string>
+    <string name="confirm_restore_app">Restoring the app will overwrite local settings, layouts, themes and input data, but not Rime schemes. Restart the app afterwards. Proceed?</string>
+    <string name="confirm_restore_legacy_full">This is a legacy full backup. It will restore both Rime schemes and app data, overwriting local settings. Proceed?</string>
+    <string name="backup_kind_mismatch">This file is not the selected backup type. Use the matching entry.</string>
+    <string name="restore_destination_title">Choose restore location</string>
+    <string name="restore_confirm_title">Confirm restore</string>
+    <string name="operation_status_color_title">Status text color</string>
     <string name="settings_group_advanced">Advanced</string>
     <string name="settings_group_advanced_summary">Addons, compatibility switches, developer options</string>
 

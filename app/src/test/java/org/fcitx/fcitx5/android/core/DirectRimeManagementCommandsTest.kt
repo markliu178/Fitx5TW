@@ -53,17 +53,19 @@ class DirectRimeManagementCommandsTest {
             DirectRimeManagementCommands.importProfile(RawConfig(arrayOf(RawConfig("Destination", "target"))))
         }
         assertEquals("请选择方案 ZIP", missing.message)
-        assertEquals(DirectRimeManagementCommands.ImportProfile("", ""),
+        assertEquals(DirectRimeManagementCommands.ImportProfile("", "", ""),
             DirectRimeManagementCommands.importProfile(RawConfig(arrayOf(RawConfig("Archive", "")))))
 
         val config = RawConfig(arrayOf(
             RawConfig("Archive", " ../cache/profile.zip "), RawConfig("Destination", "  "),
+            RawConfig("Name", " 方案 "),
             RawConfig("Archive", "ignored duplicate"),
         ))
         val command = DirectRimeManagementCommands.importProfile(config)
         config["Archive"].value = "changed.zip"
         config["Destination"].value = "changed destination"
-        assertEquals(DirectRimeManagementCommands.ImportProfile(" ../cache/profile.zip ", "  "), command)
+        config["Name"].value = "changed name"
+        assertEquals(DirectRimeManagementCommands.ImportProfile(" ../cache/profile.zip ", "  ", " 方案 "), command)
     }
 
     @Test fun schemaRowsPreserveSelectionOrderDuplicatesEmptyIdsAndTheThirdColumnRemainder() {

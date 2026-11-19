@@ -26,6 +26,9 @@ import com.google.android.material.shape.ShapeAppearanceModel
 import org.fcitx.fcitx5.android.ui.main.settings.search.SettingsSearchPreference
 import java.util.WeakHashMap
 
+/** A preference row that must not receive the tonal surface or ripple background. */
+interface TransparentPreferenceRow
+
 /** Applies the tonal, segmented-list treatment used by the Material 3 settings references. */
 class ExpressivePreferenceListStyle(
     private val recyclerView: RecyclerView,
@@ -185,6 +188,13 @@ class ExpressivePreferenceListStyle(
             rowBackgrounds[view] = null
             view.clipToOutline = false
             if (preference is PreferenceCategory) styleCategoryTitle(view)
+            return
+        }
+
+        if (preference is TransparentPreferenceRow) {
+            view.background = null
+            rowBackgrounds[view] = null
+            view.clipToOutline = false
             return
         }
 

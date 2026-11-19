@@ -9,7 +9,9 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.DocumentsContract
+import android.provider.OpenableColumns
 import android.provider.Settings
+import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -27,6 +29,7 @@ import kotlinx.coroutines.withContext
 import org.fcitx.fcitx5.android.R
 import org.fcitx.fcitx5.android.core.RawConfig
 import org.fcitx.fcitx5.android.daemon.FcitxDaemon
+import org.fcitx.fcitx5.android.data.RimeDataDirectoryState
 import org.fcitx.fcitx5.android.ui.main.ShareReceiveDirectoryPicker
 import org.fcitx.fcitx5.android.ui.common.SettingsUiActivity
 import org.fcitx.fcitx5.android.ui.common.OperationStatusView
@@ -44,6 +47,7 @@ class RimeImportActivity : SettingsUiActivity() {
     private var statusState = State.IDLE
     private lateinit var choose: MaterialButton
     private var pendingArchivePath: String? = null
+    private var pendingArchiveName: String? = null
     private var pendingDestinationPath: String? = null
     private var pendingFallbackMessage: String? = null
     private var pendingSelectionStep: String? = null
@@ -57,6 +61,7 @@ class RimeImportActivity : SettingsUiActivity() {
         val archive = pendingArchiveFile()
         if (archive == null) {
             pendingArchivePath = null
+            pendingArchiveName = null
             pendingDestinationPath = null
             pendingSelectionStep = null
             choose.isEnabled = true
@@ -101,6 +106,9 @@ class RimeImportActivity : SettingsUiActivity() {
         super.onCreate(savedInstanceState)
         pendingArchivePath = savedInstanceState?.getString(STATE_PENDING_ARCHIVE)
             ?.takeIf(::isPendingArchive)
+        pendingArchiveName = if (pendingArchivePath != null) {
+            savedInstanceState?.getString(STATE_PENDING_ARCHIVE_NAME)
+        } else null
         pendingDestinationPath = if (pendingArchivePath != null) {
             savedInstanceState?.getString(STATE_PENDING_DESTINATION)
         } else null
@@ -171,6 +179,7 @@ class RimeImportActivity : SettingsUiActivity() {
 
     private fun copyArchiveAndChooseDestination(uri: Uri) {
         choose.isEnabled = false
+        pendingArchiveName = suggestedProfileName(uri)
         showStatus(R.string.direct_rime_reading_archive, State.WORKING)
         lifecycleScope.launch {
             var archive: File? = null
@@ -207,6 +216,7 @@ class RimeImportActivity : SettingsUiActivity() {
             } catch (e: Exception) {
                 archive?.delete()
                 pendingArchivePath = null
+                pendingArchiveName = null
                 pendingDestinationPath = null
                 pendingSelectionStep = null
                 pendingFallbackMessage = null
@@ -374,17 +384,81 @@ class RimeImportActivity : SettingsUiActivity() {
         val archive = pendingArchiveFile()
         if (archive == null) {
             pendingArchivePath = null
+            pendingArchiveName = null
             pendingDestinationPath = null
             pendingSelectionStep = null
             choose.isEnabled = true
             showStatus(R.string.direct_rime_archive_missing, State.ERROR)
             return
         }
-        importArchive(archive, destination.orEmpty(), appRelativePath)
+        promptProfileName(pendingArchiveName ?: "rime-scheme") { name ->
+            if (name == null) cancelPendingImport()
+            else importArchive(archive, destination.orEmpty(), appRelativePath, name)
+        }
     }
 
-    private fun importArchive(archive: File, destination: String, appRelativePath: String?) {
+    private fun suggestedProfileName(uri: Uri): String {
+        val raw = runCatching {
+            contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use {
+                if (it.moveToFirst()) it.getString(0) else null
+            }
+        }.getOrNull().orEmpty()
+        val base = raw.substringBeforeLast('.', raw)
+            .map { c -> if (c == '/' || c == '\\' || c.code < 32 || c.code == 127) '-' else c }
+            .joinToString("")
+            .trim()
+            .trim('.')
+        val builder = StringBuilder()
+        for (c in base) {
+            if ((builder.toString() + c).toByteArray(Charsets.UTF_8).size > 64) break
+            builder.append(c)
+        }
+        return builder.toString().ifBlank { "rime-scheme" }
+    }
+
+    private fun promptProfileName(defaultName: String, onResult: (String?) -> Unit) {
+        val input = TextInputEditText(this).apply {
+            setText(defaultName)
+            setSelection(text?.length ?: 0)
+            isSingleLine = true
+        }
+        val density = resources.displayMetrics.density
+        val box = TextInputLayout(this).apply {
+            hint = getString(R.string.direct_rime_profile_name_label)
+            setPadding((24 * density).toInt(), (8 * density).toInt(), (24 * density).toInt(), 0)
+            addView(input, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
+        var reported = false
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.direct_rime_profile_name_title)
+            .setView(box)
+            .setPositiveButton(android.R.string.ok, null)
+            .setNegativeButton(android.R.string.cancel) { _, _ ->
+                if (!reported) { reported = true; onResult(null) }
+            }
+            .setOnCancelListener {
+                if (!reported) { reported = true; onResult(null) }
+            }
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE).setOnClickListener {
+                val name = input.text?.toString()?.trim().orEmpty()
+                if (!RimeDataDirectoryState.isValidName(name)) {
+                    input.error = getString(R.string.direct_rime_profile_name_invalid)
+                } else {
+                    reported = true
+                    dialog.dismiss()
+                    onResult(name)
+                }
+            }
+        }
+        dialog.show()
+    }
+
+    private fun importArchive(archive: File, destination: String, appRelativePath: String?, name: String) {
         pendingArchivePath = null
+        pendingArchiveName = null
         pendingDestinationPath = null
         pendingFallbackMessage = null
         pendingSelectionStep = null
@@ -399,7 +473,8 @@ class RimeImportActivity : SettingsUiActivity() {
                         "import-profile",
                         RawConfig(arrayOf(
                             RawConfig("Archive", archive.absolutePath),
-                            RawConfig("Destination", destination)
+                            RawConfig("Destination", destination),
+                            RawConfig("Name", name)
                         ))
                     )
                 }
@@ -420,6 +495,7 @@ class RimeImportActivity : SettingsUiActivity() {
     private fun cancelPendingImport() {
         pendingArchiveFile()?.delete()
         pendingArchivePath = null
+        pendingArchiveName = null
         pendingDestinationPath = null
         pendingFallbackMessage = null
         pendingSelectionStep = null
@@ -447,6 +523,7 @@ class RimeImportActivity : SettingsUiActivity() {
             outState.putBoolean("ui_status_error", statusState == State.ERROR)
         }
         outState.putString(STATE_PENDING_ARCHIVE, pendingArchivePath)
+        outState.putString(STATE_PENDING_ARCHIVE_NAME, pendingArchiveName)
         outState.putString(STATE_PENDING_DESTINATION, pendingDestinationPath)
         outState.putString(STATE_PENDING_FALLBACK, pendingFallbackMessage)
         outState.putString(STATE_PENDING_SELECTION_STEP, pendingSelectionStep)
@@ -466,6 +543,7 @@ class RimeImportActivity : SettingsUiActivity() {
 
     private companion object {
         const val STATE_PENDING_ARCHIVE = "pending_rime_import_archive"
+        const val STATE_PENDING_ARCHIVE_NAME = "pending_rime_import_archive_name"
         const val STATE_PENDING_DESTINATION = "pending_rime_import_destination"
         const val STATE_PENDING_FALLBACK = "pending_rime_import_fallback"
         const val STATE_PENDING_SELECTION_STEP = "pending_rime_import_selection_step"

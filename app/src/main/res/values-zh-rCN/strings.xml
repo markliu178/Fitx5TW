@@ -1076,8 +1076,23 @@
     <string name="settings_group_appearance_summary">主题、图标和字体</string>
     <string name="settings_group_convenience">便捷功能</string>
     <string name="settings_group_convenience_summary">剪贴板、文本编辑、表情符号与插件设置</string>
-    <string name="settings_group_data">数据与备份</string>
-    <string name="settings_group_data_summary">用户数据管理、万象方案更新</string>
+    <string name="settings_group_data">备份与恢复</string>
+    <string name="settings_group_data_summary">方案与应用数据的备份与恢复、万象方案更新</string>
+    <string name="scheme_export">方案导出</string>
+    <string name="scheme_export_summary">仅导出全部 Rime 方案目录，不含应用设置</string>
+    <string name="scheme_restore">方案恢复</string>
+    <string name="scheme_restore_summary">从方案导出文件恢复，可选择目标目录</string>
+    <string name="app_backup">应用备份</string>
+    <string name="app_backup_summary">备份键盘、布局、映射、皮肤、剪贴板等非方案数据</string>
+    <string name="app_restore">应用恢复</string>
+    <string name="app_restore_summary">恢复应用设置与数据，不包含 Rime 方案</string>
+    <string name="confirm_restore_scheme">将用备份中的 Rime 方案覆盖选定目录，应用设置不受影响。继续吗？</string>
+    <string name="confirm_restore_app">应用恢复会覆盖本地设置、布局、皮肤和输入数据，但不包含 Rime 方案，并且需要重启应用后生效。继续吗？</string>
+    <string name="confirm_restore_legacy_full">这是旧版完整备份，将同时恢复 Rime 方案与应用数据，并覆盖本地设置。继续吗？</string>
+    <string name="backup_kind_mismatch">所选文件不是对应的备份类型，请使用正确的入口。</string>
+    <string name="restore_destination_title">选择恢复位置</string>
+    <string name="restore_confirm_title">确认恢复</string>
+    <string name="operation_status_color_title">状态文字颜色</string>
     <string name="settings_group_advanced">高级</string>
     <string name="settings_group_advanced_summary">附加组件、兼容性开关与开发者选项</string>
 

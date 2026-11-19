@@ -8,13 +8,15 @@ import android.os.Build
 import android.os.Bundle
 import android.net.Uri
 import android.provider.DocumentsContract
+import android.widget.TextView
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import androidx.preference.PreferenceViewHolder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
@@ -29,15 +31,19 @@ import org.fcitx.fcitx5.android.data.UserDataBackupArchive
 import org.fcitx.fcitx5.android.data.UserDataBackupManager
 import org.fcitx.fcitx5.android.data.RimeProfileRestorePlan
 import org.fcitx.fcitx5.android.data.ProtectedBackup
+import org.fcitx.fcitx5.android.data.prefs.AppPrefs
 import org.fcitx.fcitx5.android.ui.common.PaddingPreferenceFragment
+import org.fcitx.fcitx5.android.ui.common.TransparentPreferenceRow
 import org.fcitx.fcitx5.android.ui.common.withLoadingDialog
 import org.fcitx.fcitx5.android.ui.common.ProgressBarDialogIndeterminate
 import org.fcitx.fcitx5.android.ui.main.MainViewModel
+import org.fcitx.fcitx5.android.ui.main.settings.theme.ThemeColorEditorActivity
 import org.fcitx.fcitx5.android.utils.addPreference
 import org.fcitx.fcitx5.android.utils.buildDocumentsProviderIntent
 import org.fcitx.fcitx5.android.utils.buildPrimaryStorageIntent
 import org.fcitx.fcitx5.android.utils.importErrorDialog
 import org.fcitx.fcitx5.android.utils.iso8601UTCDateTime
+import org.fcitx.fcitx5.android.utils.settingsColor
 import org.fcitx.fcitx5.android.utils.toast
 import java.io.File
 import java.util.UUID
@@ -60,7 +66,8 @@ class DataBackupFragment : PaddingPreferenceFragment() {
     private var importInProgress = false
     private var exportInProgress = false
     private var pendingExportArchive: File? = null
-    private var operationPreference: Preference? = null
+    private var pendingImportKind = UserDataManager.KIND_FULL
+    private var operationPreference: StatusPreference? = null
     private var operationMessage: String? = null
     private var operationDetails: String? = null
     private var operationBusy = false
@@ -71,25 +78,35 @@ class DataBackupFragment : PaddingPreferenceFragment() {
 
     private lateinit var importLauncher: ActivityResultLauncher<String>
 
+    private lateinit var colorLauncher: ActivityResultLauncher<ThemeColorEditorActivity.EditorInput>
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         pendingExportArchive = UserDataBackupArchive.pending(savedInstanceState?.getString("pendingExportArchive"), requireContext().cacheDir)
+        pendingImportKind = savedInstanceState?.getString("pendingImportKind") ?: UserDataManager.KIND_FULL
         operationMessage = savedInstanceState?.getString("operationMessage")
         operationDetails = savedInstanceState?.getString("operationDetails")
         renderOperation()
         importLauncher =
             registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
                 if (uri == null) return@registerForActivityResult
-                beginImport(uri)
+                beginImport(uri, pendingImportKind)
             }
         exportLauncher =
             registerForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
                 publishExport(uri)
             }
+        colorLauncher =
+            registerForActivityResult(ThemeColorEditorActivity.Contract()) { result ->
+                if (result == null) return@registerForActivityResult
+                AppPrefs.getInstance().internal.operationStatusTextColor.setValue(result.color ?: 0)
+                renderOperation()
+            }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString("pendingExportArchive", pendingExportArchive?.absolutePath)
+        outState.putString("pendingImportKind", pendingImportKind)
         if (!operationBusy) {
             outState.putString("operationMessage", operationMessage)
             outState.putString("operationDetails", operationDetails)
@@ -105,7 +122,7 @@ class DataBackupFragment : PaddingPreferenceFragment() {
         super.onDestroy()
     }
 
-    private fun beginExport() {
+    private fun beginExport(kind: String) {
         if (importInProgress || exportInProgress || pendingExportArchive != null) return
         exportInProgress = true
         val ctx = requireContext()
@@ -122,7 +139,9 @@ class DataBackupFragment : PaddingPreferenceFragment() {
                 showOperation(R.string.ui_backup_preparing, busy = true)
                 loading(R.string.ui_backup_preparing) {
                     // Record ownership before cancellation can dispatch back to this fragment.
-                    withContext(NonCancellable) { archive = UserDataBackupManager.prepare(exportTimestamp) }
+                    withContext(NonCancellable) {
+                        archive = UserDataBackupManager.prepare(exportTimestamp, kind)
+                    }
                     password?.let { secret ->
                         withContext(Dispatchers.IO) {
                             val encrypted = File.createTempFile(UserDataBackupArchive.PREFIX, ".zip", ctx.cacheDir)
@@ -142,7 +161,12 @@ class DataBackupFragment : PaddingPreferenceFragment() {
                 pendingExportArchive = archive
                 showOperation(R.string.ui_backup_destination)
                 val extension = if (password != null) "fcbak" else "zip"
-                exportLauncher.launch("fcitx5-android_${iso8601UTCDateTime(exportTimestamp)}.$extension")
+                val prefix = when (kind) {
+                    UserDataManager.KIND_SCHEME -> "rime-schemes"
+                    UserDataManager.KIND_APP -> "app-backup"
+                    else -> "fcitx5-android"
+                }
+                exportLauncher.launch("${prefix}_${iso8601UTCDateTime(exportTimestamp)}.$extension")
                 archive = null
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) {
@@ -196,7 +220,7 @@ class DataBackupFragment : PaddingPreferenceFragment() {
         return try { action() } finally { dialog.dismiss() }
     }
 
-    private fun beginImport(uri: Uri) {
+    private fun beginImport(uri: Uri, expectedKind: String) {
         if (importInProgress || exportInProgress || pendingExportArchive != null) return
         importInProgress = true
         showOperation(R.string.ui_backup_checking, busy = true)
@@ -227,32 +251,52 @@ class DataBackupFragment : PaddingPreferenceFragment() {
                         }
                     }
                 }
-                var plan: RimeProfileRestorePlan
-                showOperation(R.string.import_user_data)
-                while (true) {
-                    plan = restorePicker.choose(backup.rimeProfiles) { selected ->
-                        loading { withContext(Dispatchers.IO) { UserDataManager.validateRestore(backup, selected) } }
-                    } ?: run {
-                        showOperation(R.string.ui_operation_cancelled)
-                        return@launch
+                val kind = backup.metadata.kind
+                if ((expectedKind == UserDataManager.KIND_SCHEME && kind == UserDataManager.KIND_APP) ||
+                    (expectedKind == UserDataManager.KIND_APP && kind == UserDataManager.KIND_SCHEME)
+                ) {
+                    throw IllegalArgumentException(ctx.getString(R.string.backup_kind_mismatch))
+                }
+                val restoreProfiles = kind != UserDataManager.KIND_APP
+                var plan = RimeProfileRestorePlan(emptyMap())
+                if (restoreProfiles) {
+                    showOperation(R.string.scheme_restore)
+                    while (true) {
+                        plan = restorePicker.choose(backup.rimeProfiles) { selected ->
+                            loading { withContext(Dispatchers.IO) { UserDataManager.validateRestore(backup, selected) } }
+                        } ?: run {
+                            showOperation(R.string.ui_operation_cancelled)
+                            return@launch
+                        }
+                        try {
+                            loading { withContext(Dispatchers.IO) { UserDataManager.validateRestore(backup, plan) } }
+                            break
+                        } catch (e: CancellationException) { throw e }
+                        catch (_: Exception) { restorePicker.explain(getString(R.string.rime_restore_conflicting_targets)) }
                     }
-                    try {
-                        loading { withContext(Dispatchers.IO) { UserDataManager.validateRestore(backup, plan) } }
-                        break
-                    } catch (e: CancellationException) { throw e }
-                    catch (_: Exception) { restorePicker.explain(getString(R.string.rime_restore_conflicting_targets)) }
+                } else {
+                    showOperation(R.string.app_restore)
+                    loading { withContext(Dispatchers.IO) { UserDataManager.validateRestore(backup, plan) } }
                 }
                 val targets = plan.destinations.map { (profile, target) ->
                     val path = target ?: File(ctx.getExternalFilesDir(null), "data/$profile")
                     getString(R.string.rime_restore_target_line, profile, path.absolutePath)
                 }.joinToString("\n\n")
-                val message = getString(R.string.confirm_import_user_data) +
-                    if (targets.isEmpty()) "" else "\n\n" + getString(R.string.rime_restore_replace_warning, targets)
+                val message = when (kind) {
+                    UserDataManager.KIND_APP -> getString(R.string.confirm_restore_app)
+                    UserDataManager.KIND_SCHEME -> getString(R.string.confirm_restore_scheme) +
+                        if (targets.isEmpty()) "" else "\n\n" + getString(R.string.rime_restore_replace_warning, targets)
+                    else -> getString(R.string.confirm_restore_legacy_full) +
+                        if (targets.isEmpty()) "" else "\n\n" + getString(R.string.rime_restore_replace_warning, targets)
+                }
                 if (!restorePicker.confirm(message)) {
                     showOperation(R.string.ui_operation_cancelled)
                     return@launch
                 }
-                showOperation(R.string.import_user_data, busy = true)
+                showOperation(
+                    if (kind == UserDataManager.KIND_APP) R.string.app_restore else R.string.scheme_restore,
+                    busy = true
+                )
                 loading {
                     // Once confirmed, finish replacement/rollback and restart handling even
                     // when the fragment is destroyed. Never leave an interrupted engine stopped.
@@ -299,12 +343,21 @@ class DataBackupFragment : PaddingPreferenceFragment() {
                 setTitle(R.string.ui_operation_status)
                 isIconSpaceReserved = false
             })
-            operationPreference = Preference(ctx).apply {
+            operationPreference = StatusPreference(ctx).apply {
                 isPersistent = false
                 isIconSpaceReserved = false
                 isSingleLineTitle = false
                 setTitle(R.string.ui_backup_ready)
                 isSelectable = false
+                setOnColorLongClickListener {
+                    val current = AppPrefs.getInstance().internal.operationStatusTextColor.getValue()
+                    colorLauncher.launch(ThemeColorEditorActivity.EditorInput(
+                        "operation_status_text_color",
+                        R.string.operation_status_color_title,
+                        if (current != 0) current else ctx.settingsColor(android.R.attr.textColorPrimary),
+                        allowClear = true
+                    ))
+                }
             }.also { addPreference(it) }
             addPreference(PreferenceCategory(ctx).apply {
                 setTitle(R.string.settings_group_data)
@@ -327,11 +380,23 @@ class DataBackupFragment : PaddingPreferenceFragment() {
                     }
                 }) else null
             )
-            addPreference(R.string.export_user_data) {
-                beginExport()
+            addPreference(R.string.scheme_export, R.string.scheme_export_summary) {
+                beginExport(UserDataManager.KIND_SCHEME)
             }
-            addPreference(R.string.import_user_data) {
-                if (!importInProgress && !exportInProgress && pendingExportArchive == null) importLauncher.launch("*/*")
+            addPreference(R.string.scheme_restore, R.string.scheme_restore_summary) {
+                if (!importInProgress && !exportInProgress && pendingExportArchive == null) {
+                    pendingImportKind = UserDataManager.KIND_SCHEME
+                    importLauncher.launch("*/*")
+                }
+            }
+            addPreference(R.string.app_backup, R.string.app_backup_summary) {
+                beginExport(UserDataManager.KIND_APP)
+            }
+            addPreference(R.string.app_restore, R.string.app_restore_summary) {
+                if (!importInProgress && !exportInProgress && pendingExportArchive == null) {
+                    pendingImportKind = UserDataManager.KIND_APP
+                    importLauncher.launch("*/*")
+                }
             }
             val wanxiangGroup = PreferenceCategory(ctx).apply {
                 setTitle(R.string.wanxiang_group)
@@ -360,14 +425,46 @@ class DataBackupFragment : PaddingPreferenceFragment() {
     private fun renderOperation() {
         operationPreference?.apply {
             title = operationMessage ?: context.getString(R.string.ui_backup_ready)
-            summary = operationDetails?.let { context.getString(R.string.ui_operation_details) }
-            isSelectable = operationDetails != null
-            setOnPreferenceClickListener {
-                operationDetails?.let { details ->
-                    MaterialAlertDialogBuilder(context).setTitle(title).setMessage(details)
-                        .setPositiveButton(android.R.string.ok, null).show()
-                }
-                true
+            summary = operationDetails
+            isSelectable = false
+            setOnPreferenceClickListener(null)
+            textColor = AppPrefs.getInstance().internal.operationStatusTextColor.getValue()
+            notifyChanged()
+        }
+    }
+
+    /**
+     * Status row without a touch background. The list style paints every non-category row,
+     * so this preference opts out through [TransparentPreferenceRow] instead of looking
+     * selectable. Long-pressing the text opens the color editor for the status content.
+     */
+    private class StatusPreference(context: android.content.Context) :
+        Preference(context), TransparentPreferenceRow {
+        var textColor: Int = 0
+        private var onColorLongClick: (() -> Unit)? = null
+
+        fun setOnColorLongClickListener(listener: () -> Unit) {
+            onColorLongClick = listener
+        }
+
+        override fun onBindViewHolder(holder: PreferenceViewHolder) {
+            super.onBindViewHolder(holder)
+            holder.itemView.background = null
+            holder.itemView.isClickable = false
+            holder.itemView.setOnLongClickListener {
+                onColorLongClick?.invoke()
+                onColorLongClick != null
+            }
+            holder.itemView.isLongClickable = onColorLongClick != null
+            val title = holder.findViewById(android.R.id.title) as? TextView
+            val summary = holder.findViewById(android.R.id.summary) as? TextView
+            if (textColor != 0) {
+                title?.setTextColor(textColor)
+                summary?.setTextColor(textColor)
+            } else {
+                // Restore the row's theme colors so a recycled view does not keep a cleared color.
+                title?.setTextColor(ContextCompat.getColorStateList(context, R.color.settings_text_primary))
+                summary?.setTextColor(ContextCompat.getColorStateList(context, R.color.settings_text_secondary))
             }
         }
     }

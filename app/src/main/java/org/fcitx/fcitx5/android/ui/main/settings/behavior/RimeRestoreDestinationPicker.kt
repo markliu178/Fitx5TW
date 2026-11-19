@@ -43,7 +43,7 @@ internal class RimeRestoreDestinationPicker(private val fragment: Fragment) {
 
     suspend fun choose(manifest: RimeProfileBackup.Manifest,
                        validate: suspend (RimeProfileRestorePlan) -> Unit): RimeProfileRestorePlan? {
-        val targets = mutableMapOf<String, File?>()
+        val targets = manifest.internalProfiles.associateWith { null as File? }.toMutableMap()
         for (name in manifest.externalProfiles) {
             val original = manifest.originalPaths[name]
             var selected = if (original == null) 2 else 0
@@ -73,9 +73,12 @@ internal class RimeRestoreDestinationPicker(private val fragment: Fragment) {
                     }
                     else -> null
                 }
-                val single = RimeProfileRestorePlan(manifest.externalProfiles.associateWith {
-                    if (it == name) target else null
-                })
+                val single = RimeProfileRestorePlan(
+                    manifest.internalProfiles.associateWith { null as File? } +
+                        manifest.externalProfiles.associateWith {
+                            if (it == name) target else null
+                        }
+                )
                 try {
                     validate(single)
                 } catch (e: kotlinx.coroutines.CancellationException) {
@@ -112,7 +115,7 @@ internal class RimeRestoreDestinationPicker(private val fragment: Fragment) {
 
     suspend fun explain(message: String) = suspendCancellableCoroutine<Unit> { continuation ->
         val dialog = MaterialAlertDialogBuilder(fragment.requireContext())
-            .setTitle(R.string.import_user_data).setMessage(message)
+            .setTitle(R.string.restore_destination_title).setMessage(message)
             .setPositiveButton(android.R.string.ok) { _, _ -> if (continuation.isActive) continuation.resume(Unit) }
             .setOnCancelListener { if (continuation.isActive) continuation.resume(Unit) }
             .show()
@@ -122,7 +125,7 @@ internal class RimeRestoreDestinationPicker(private val fragment: Fragment) {
     suspend fun confirm(message: String): Boolean = suspendCancellableCoroutine { continuation ->
         val dialog = MaterialAlertDialogBuilder(fragment.requireContext())
             .setIconAttribute(android.R.attr.alertDialogIcon)
-            .setTitle(R.string.import_user_data).setMessage(message)
+            .setTitle(R.string.restore_confirm_title).setMessage(message)
             .setPositiveButton(android.R.string.ok) { _, _ -> if (continuation.isActive) continuation.resume(true) }
             .setNegativeButton(android.R.string.cancel) { _, _ -> if (continuation.isActive) continuation.resume(false) }
             .setOnCancelListener { if (continuation.isActive) continuation.resume(false) }

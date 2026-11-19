@@ -1003,20 +1003,30 @@ object SettingsSearchIndex {
             route = SettingsRoute.Symbol
         ),
 
-        /* ===== Android：数据与备份 ===== */
+        /* ===== Android：备份与恢复 ===== */
         SettingsSearchEntry(
             R.string.settings_group_data, P_ANDROID,
-            listOf("data", "backup", "数据", "备份", "导入导出"),
+            listOf("data", "backup", "restore", "数据", "备份", "恢复", "导入导出"),
             route = SettingsRoute.DataBackup
         ),
         SettingsSearchEntry(
-            R.string.export_user_data, P_DATA,
-            listOf("export", "导出", "daochu", "备份"),
+            R.string.scheme_export, P_DATA,
+            listOf("export scheme", "方案导出", "导出方案", "daochu"),
             route = SettingsRoute.DataBackup
         ),
         SettingsSearchEntry(
-            R.string.import_user_data, P_DATA,
-            listOf("import", "导入", "daoru", "恢复"),
+            R.string.scheme_restore, P_DATA,
+            listOf("restore scheme", "方案恢复", "恢复方案", "daoru"),
+            route = SettingsRoute.DataBackup
+        ),
+        SettingsSearchEntry(
+            R.string.app_backup, P_DATA,
+            listOf("app backup", "应用备份", "备份应用", "设置备份"),
+            route = SettingsRoute.DataBackup
+        ),
+        SettingsSearchEntry(
+            R.string.app_restore, P_DATA,
+            listOf("app restore", "应用恢复", "恢复应用", "设置恢复"),
             route = SettingsRoute.DataBackup
         ),
         SettingsSearchEntry(

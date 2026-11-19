@@ -10,7 +10,13 @@ import java.io.IOException
 /** A null target explicitly means the application's data/<profile> directory. */
 data class RimeProfileRestorePlan(val destinations: Map<String, File?>) {
     fun validate(manifest: RimeProfileBackup.Manifest, protectedRoots: List<File>) {
-        require(destinations.keys == manifest.externalProfiles.toSet()) { "Choose a destination for every external Rime directory." }
+        // Internal profiles default to the application's data/<profile> directory and may be
+        // omitted from the plan; every external profile needs an explicit (possibly app) choice.
+        val known = (manifest.externalProfiles + manifest.internalProfiles).toSet()
+        require(destinations.keys.all { it in known }) { "Unknown Rime profile destination." }
+        require(destinations.keys.containsAll(manifest.externalProfiles)) {
+            "Choose a destination for every external Rime profile directory."
+        }
         val external = destinations.values.filterNotNull().map { it.canonicalFile }
         val protected = protectedRoots.map { it.canonicalFile }
         external.forEachIndexed { index, target ->

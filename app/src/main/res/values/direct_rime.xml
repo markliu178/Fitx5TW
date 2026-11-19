@@ -16,6 +16,9 @@
     <string name="direct_rime_choose_app_directory">Choose app directory</string>
     <string name="direct_rime_archive_missing">The temporary ZIP is no longer available. Choose it again.</string>
     <string name="direct_rime_importing">Importing and deploying…</string>
+    <string name="direct_rime_profile_name_title">Name the scheme</string>
+    <string name="direct_rime_profile_name_label">Scheme name (the folder name in the app directory)</string>
+    <string name="direct_rime_profile_name_invalid">The name cannot be empty, contain / \\ or control characters, or exceed 64 bytes.</string>
     <string name="direct_rime_imported">Deployment complete. You can test typing below.</string>
     <string name="direct_rime_import_cancelled">Import cancelled.</string>
     <string name="direct_rime_import_failed">Import failed: %1$s</string>

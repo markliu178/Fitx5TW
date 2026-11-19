@@ -1026,8 +1026,23 @@
     <string name="settings_group_appearance_summary">主題、圖示和字型</string>
     <string name="settings_group_convenience">便捷功能</string>
     <string name="settings_group_convenience_summary">剪貼簿、文字編輯、表情符號與外掛設定</string>
-    <string name="settings_group_data">資料與備份</string>
-    <string name="settings_group_data_summary">使用者資料管理、萬象方案更新</string>
+    <string name="settings_group_data">備份與還原</string>
+    <string name="settings_group_data_summary">方案與應用程式資料的備份與還原、萬象方案更新</string>
+    <string name="scheme_export">方案匯出</string>
+    <string name="scheme_export_summary">僅匯出全部 Rime 方案目錄，不含應用程式設定</string>
+    <string name="scheme_restore">方案還原</string>
+    <string name="scheme_restore_summary">從方案匯出檔還原，可選擇目標目錄</string>
+    <string name="app_backup">應用程式備份</string>
+    <string name="app_backup_summary">備份鍵盤、版面、對應、面板、剪貼簿等非方案資料</string>
+    <string name="app_restore">應用程式還原</string>
+    <string name="app_restore_summary">還原應用程式設定與資料，不含 Rime 方案</string>
+    <string name="confirm_restore_scheme">將用備份中的 Rime 方案覆寫選定目錄，應用程式設定不受影響。繼續嗎？</string>
+    <string name="confirm_restore_app">應用程式還原會覆寫本機設定、版面、面板與輸入資料，但不含 Rime 方案，且需要重新啟動應用程式後生效。繼續嗎？</string>
+    <string name="confirm_restore_legacy_full">這是舊版完整備份，將同時還原 Rime 方案與應用程式資料，並覆寫本機設定。繼續嗎？</string>
+    <string name="backup_kind_mismatch">所選檔案不是對應的備份類型，請使用正確的入口。</string>
+    <string name="restore_destination_title">選擇還原位置</string>
+    <string name="restore_confirm_title">確認還原</string>
+    <string name="operation_status_color_title">狀態文字顏色</string>
     <string name="settings_group_advanced">進階</string>
     <string name="settings_group_advanced_summary">附加元件、相容性開關與開發者選項</string>
 

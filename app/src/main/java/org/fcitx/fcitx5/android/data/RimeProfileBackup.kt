@@ -34,16 +34,27 @@ object RimeProfileBackup {
     data class Manifest(
         val version: Int = 1,
         val externalProfiles: List<String>,
+        val internalProfiles: List<String> = emptyList(),
         val originalPaths: Map<String, String> = emptyMap()
     )
 
-    fun write(externalRoot: File, state: RimeDataDirectoryState, zip: ZipOutputStream) {
+    private class Sources(
+        val root: File,
+        val external: Map<String, File>,
+        val internal: List<String>
+    )
+
+    private fun resolveSources(externalRoot: File, state: RimeDataDirectoryState): Sources {
         require(state.profiles.all(RimeDataDirectoryState::isValidName)) { "Invalid Rime profile names." }
         val root = externalRoot.canonicalFile
-        val external = state.profiles.mapNotNull { name ->
+        val external = mutableMapOf<String, File>()
+        val internal = mutableListOf<String>()
+        state.profiles.forEach { name ->
             val source = File(state.paths.getValue(name)).canonicalFile
-            val internal = File(root, "data/$name").canonicalFile
-            if (source == internal) null else {
+            val internalDir = File(root, "data/$name").canonicalFile
+            if (source == internalDir) {
+                internal += name
+            } else {
                 // A profile containing the app's files would recursively include its own backup.
                 if (root.path == source.path || root.path.startsWith(source.path + File.separator)) {
                     throw IOException("The Rime directory contains the application data directory.")
@@ -51,21 +62,56 @@ object RimeProfileBackup {
                 if (!source.isDirectory || !source.canRead()) {
                     throw IOException("An external Rime directory is unavailable. Backup was not completed.")
                 }
-                name to source
+                external[name] = source
             }
-        }.toMap()
-        BackupFileTree.write(root, "external", zip) { file ->
-            file == File(root, RimeDataDirectoryState.CONFIG_PATH) ||
-                external.keys.any { file == File(root, "data/$it") }
         }
-        external.forEach { (name, source) -> BackupFileTree.write(source, "external/data/$name", zip) }
+        return Sources(root, external, internal)
+    }
+
+    private fun writeConfig(state: RimeDataDirectoryState, zip: ZipOutputStream) {
         zip.putNextEntry(ZipEntry("external/${RimeDataDirectoryState.CONFIG_PATH}"))
         zip.write(state.portableConfig().toByteArray(Charsets.UTF_8))
         zip.closeEntry()
+    }
+
+    private fun writeManifest(sources: Sources, zip: ZipOutputStream) {
         zip.putNextEntry(ZipEntry(MANIFEST_NAME))
-        zip.write(Json.encodeToString(Manifest(version = 2, externalProfiles = external.keys.toList(),
-            originalPaths = external.mapValues { it.value.absolutePath })).toByteArray(Charsets.UTF_8))
+        zip.write(Json.encodeToString(Manifest(
+            version = 3,
+            externalProfiles = sources.external.keys.toList(),
+            internalProfiles = sources.internal,
+            originalPaths = sources.external.mapValues { it.value.absolutePath }
+        )).toByteArray(Charsets.UTF_8))
         zip.closeEntry()
+    }
+
+    fun write(externalRoot: File, state: RimeDataDirectoryState, zip: ZipOutputStream) {
+        val sources = resolveSources(externalRoot, state)
+        BackupFileTree.write(sources.root, "external", zip) { file ->
+            file == File(sources.root, RimeDataDirectoryState.CONFIG_PATH) ||
+                sources.external.keys.any { file == File(sources.root, "data/$it") }
+        }
+        sources.external.forEach { (name, source) ->
+            BackupFileTree.write(source, "external/data/$name", zip)
+        }
+        writeConfig(state, zip)
+        writeManifest(sources, zip)
+    }
+
+    /**
+     * Scheme-only archive: every profile directory, the profile-manager config and the manifest.
+     * Other files under the app's external directory belong to the app backup, not here.
+     */
+    fun writeProfilesOnly(externalRoot: File, state: RimeDataDirectoryState, zip: ZipOutputStream) {
+        val sources = resolveSources(externalRoot, state)
+        sources.internal.forEach { name ->
+            BackupFileTree.write(File(sources.root, "data/$name"), "external/data/$name", zip)
+        }
+        sources.external.forEach { (name, source) ->
+            BackupFileTree.write(source, "external/data/$name", zip)
+        }
+        writeConfig(state, zip)
+        writeManifest(sources, zip)
     }
 
     /** Validate before any live app files are replaced. Old backups remain importable. */
@@ -86,18 +132,23 @@ object RimeProfileBackup {
         }
         if (!manifestFile.exists()) return Manifest(externalProfiles = emptyList())
         val manifest = Json.decodeFromString<Manifest>(manifestFile.readText())
-        require(manifest.version in 1..2 && manifest.externalProfiles.distinct() == manifest.externalProfiles &&
+        require(manifest.version in 1..3 && manifest.externalProfiles.distinct() == manifest.externalProfiles &&
             manifest.externalProfiles.all(RimeDataDirectoryState::isValidName)) {
             "Invalid Rime profile backup manifest."
+        }
+        require(manifest.internalProfiles.distinct() == manifest.internalProfiles &&
+            manifest.internalProfiles.all(RimeDataDirectoryState::isValidName) &&
+            manifest.internalProfiles.none { it in manifest.externalProfiles }) {
+            "Invalid internal Rime profile list."
         }
         require(manifest.originalPaths.keys.all { it in manifest.externalProfiles } &&
             manifest.originalPaths.values.all { RimeDataDirectoryState.isAbsolutePath(it) && '\u0000' !in it } &&
             (manifest.version == 1 || manifest.originalPaths.keys == manifest.externalProfiles.toSet())) {
             "Invalid original Rime directory paths."
         }
-        manifest.externalProfiles.forEach { name ->
+        (manifest.externalProfiles + manifest.internalProfiles).forEach { name ->
             require(File(extractedRoot, "external/data/$name").isDirectory) {
-                "The backup is missing an external Rime directory."
+                "The backup is missing a Rime profile directory."
             }
         }
         return manifest

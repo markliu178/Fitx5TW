@@ -771,6 +771,7 @@ class DirectRimeBackend(context: Context) : InputEngine {
                     File(context.cacheDir, "rime-import"),
                     parent,
                     profiles,
+                    preferredName = command.name
                 )
                 profileOperations.installImported(transaction)
             }

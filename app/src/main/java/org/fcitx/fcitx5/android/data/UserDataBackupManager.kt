@@ -14,7 +14,8 @@ import java.util.UUID
 
 object UserDataBackupManager {
     /** Stop native writers while copying; cancellation must still resume the engine. */
-    suspend fun prepare(timestamp: Long = System.currentTimeMillis()): File = withContext(NonCancellable) {
+    suspend fun prepare(timestamp: Long = System.currentTimeMillis(),
+                        kind: String = UserDataManager.KIND_FULL): File = withContext(NonCancellable) {
         val name = "UserDataBackup-${UUID.randomUUID()}"
         val connection = FcitxDaemon.connect(name)
         var archive: File? = null
@@ -28,7 +29,7 @@ object UserDataBackupManager {
                 UserDataBackupArchive.prepare(appContext.cacheDir,
                     pause = { FcitxDaemon.beginUserDataBackup() },
                     resume = { FcitxDaemon.finishUserDataBackup() }) {
-                    UserDataManager.export(it, state, timestamp).getOrThrow()
+                    UserDataManager.export(it, state, timestamp, kind).getOrThrow()
                 }
             }
             archive = ready

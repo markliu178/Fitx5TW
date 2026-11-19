@@ -6,7 +6,11 @@ internal object DirectRimeManagementCommands {
     enum class ProfileAction { Create, Switch, Rename, Delete, Unknown }
 
     data class ProfileManager(val name: String, val action: ProfileAction)
-    data class ImportProfile(val archivePath: String, val destinationPath: String)
+    data class ImportProfile(
+        val archivePath: String,
+        val destinationPath: String,
+        val name: String
+    )
     data class SchemaSelection(val ids: List<String>)
 
     fun profileManager(config: RawConfig): ProfileManager {
@@ -29,7 +33,8 @@ internal object DirectRimeManagementCommands {
     fun importProfile(config: RawConfig): ImportProfile {
         val archivePath = config.findByName("Archive")?.value ?: error("请选择方案 ZIP")
         val destinationPath = config.findByName("Destination")?.value.orEmpty()
-        return ImportProfile(archivePath, destinationPath)
+        val name = config.findByName("Name")?.value.orEmpty()
+        return ImportProfile(archivePath, destinationPath, name)
     }
 
     fun schemaSelection(config: RawConfig): SchemaSelection {
