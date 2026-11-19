@@ -153,4 +153,20 @@ class AltLabelSideDirectionTest {
             ThemeManager.prefs.altLabelOnSide.setValue(false)
         }
     }
+
+    /** 布局里的上/下标偏移必须分别落到两个副标签上，且方向与 JSON 语义一致。 */
+    @Test
+    fun altLabelOffsetsTranslateBothDirectionalLabelsIndependently() {
+        val key = directionalKey()
+        key.altLabelOffsetX = 3
+        key.altLabelOffsetY = -4
+        key.altLabel1OffsetX = -2
+        key.altLabel1OffsetY = 5
+        key.refreshAltTextLayout()
+        layout(key, View.LAYOUT_DIRECTION_LTR)
+        assertEquals(dp(3).toFloat(), key.altText.translationX, 0f)
+        assertEquals(dp(-4).toFloat(), key.altText.translationY, 0f)
+        assertEquals(dp(-2).toFloat(), key.altText1.translationX, 0f)
+        assertEquals(dp(5).toFloat(), key.altText1.translationY, 0f)
+    }
 }

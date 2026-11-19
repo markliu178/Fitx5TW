@@ -1746,6 +1746,11 @@ abstract class BaseKeyboard(
             )
         }.apply {
             statisticsKeyLabel = KeyboardStatisticsLayout.label(def)
+            // 副标签偏移只跟随基础键定义：合成态换文字时位置不应跳动。
+            altLabelOffsetX = def.swipeUpLabelOffsetX
+            altLabelOffsetY = def.swipeUpLabelOffsetY
+            altLabel1OffsetX = def.swipeDownLabelOffsetX
+            altLabel1OffsetY = def.swipeDownLabelOffsetY
             if (statisticsKeyLabel != null) {
                 statisticsKeys[this] = Unit
                 onStatisticsPress = ::recordStatisticsPress
@@ -2161,6 +2166,12 @@ abstract class BaseKeyboard(
             else -> oldLayoutParams
         }
         val newView = createKeyView(def, registerComposeAware = false, appearanceOverride = appearance)
+        // 副标签偏移属于基础键的布局位置，不随合成态覆盖键变化；重建视图时用基础键的值
+        // 覆盖 createKeyView 从 def（此刻可能是 composeOverride）读到的偏移。
+        newView.altLabelOffsetX = item.baseDef.swipeUpLabelOffsetX
+        newView.altLabelOffsetY = item.baseDef.swipeUpLabelOffsetY
+        newView.altLabel1OffsetX = item.baseDef.swipeDownLabelOffsetX
+        newView.altLabel1OffsetY = item.baseDef.swipeDownLabelOffsetY
         applyConfiguredFonts(newView)
         // Keep the same identity so sibling constraints (leftToRight/rightToLeft) remain valid.
         newView.id = oldView.id

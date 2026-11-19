@@ -127,6 +127,19 @@ abstract class KeyView(
     @FloatRange(0.0, 1.0)
     var layoutMarginRight = 0f
 
+    /**
+     * 副标签位置微调（dp，正数向右/向下）。
+     *
+     * [altLabelOffsetX]/[altLabelOffsetY] 作用于第一个副标签（`altText`，上标），
+     * [altLabel1OffsetX]/[altLabel1OffsetY] 作用于第二个（`altText1`，下标）。
+     * 值来自基础键定义，由 [org.fcitx.fcitx5.android.input.keyboard.BaseKeyboard]
+     * 在创建视图时写入；合成态不单独调整位置。
+     */
+    var altLabelOffsetX = 0
+    var altLabelOffsetY = 0
+    var altLabel1OffsetX = 0
+    var altLabel1OffsetY = 0
+
     var onWaterRippleRequest: ((keyView: KeyView, localX: Float, localY: Float) -> Unit)? = null
     internal var statisticsKeyLabel: String? = null
     internal var onStatisticsPress: ((KeyView) -> Unit)? = null
@@ -1139,7 +1152,16 @@ class AltTextKeyView(
         }
     }
 
+    /** 把布局里配置的上/下标偏移应用到两个副标签（先于布局模式判断，模式不变时也要刷新）。 */
+    private fun applyAltLabelOffsets() {
+        altText.translationX = dp(altLabelOffsetX).toFloat()
+        altText.translationY = dp(altLabelOffsetY).toFloat()
+        altText1.translationX = dp(altLabel1OffsetX).toFloat()
+        altText1.translationY = dp(altLabel1OffsetY).toFloat()
+    }
+
     private fun applyLayout(keyHeight: Int = appearanceView.height): Boolean {
+        applyAltLabelOffsets()
         val mode = resolveLayoutMode(keyHeight)
         if (mode == lastLayoutMode) return false
         lastLayoutMode = mode
@@ -1815,7 +1837,16 @@ class ImageAltTextKeyView(
         }
     }
 
+    /** 把布局里配置的上/下标偏移应用到两个副标签（先于布局模式判断，模式不变时也要刷新）。 */
+    private fun applyAltLabelOffsets() {
+        altText.translationX = dp(altLabelOffsetX).toFloat()
+        altText.translationY = dp(altLabelOffsetY).toFloat()
+        altText1.translationX = dp(altLabel1OffsetX).toFloat()
+        altText1.translationY = dp(altLabel1OffsetY).toFloat()
+    }
+
     private fun applyLayout(keyHeight: Int = appearanceView.height): Boolean {
+        applyAltLabelOffsets()
         val mode = resolveLayoutMode(keyHeight)
         if (mode == lastLayoutMode) return false
         lastLayoutMode = mode

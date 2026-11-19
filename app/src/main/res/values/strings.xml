@@ -770,6 +770,11 @@
     <string name="text_keyboard_layout_swipe_label">Swipe Label</string>
     <string name="text_keyboard_layout_swipe_up_label">Swipe Up Label</string>
     <string name="text_keyboard_layout_swipe_down_label">Swipe Down Label</string>
+    <string name="text_keyboard_layout_alt_label_offset_hint">Fine-tune the secondary label position for this key only, in dp. Positive values move right/down, negative values move left/up; 0 keeps the default position.</string>
+    <string name="text_keyboard_layout_alt_up_offset_x">Up Label X Offset</string>
+    <string name="text_keyboard_layout_alt_up_offset_y">Up Label Y Offset</string>
+    <string name="text_keyboard_layout_alt_down_offset_x">Down Label X Offset</string>
+    <string name="text_keyboard_layout_alt_down_offset_y">Down Label Y Offset</string>
     <string name="text_keyboard_layout_space_label">Space Key Label</string>
     <string name="text_keyboard_layout_space_label_hint">Leave blank to show the current scheme name (or Chinese/ASCII state) automatically.</string>
     <string name="text_keyboard_layout_space_swipe_hint">Only takes effect when "Swipe on space key to move cursor" is turned off; while it is on, swiping the space key moves the cursor instead.</string>

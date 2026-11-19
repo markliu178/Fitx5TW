@@ -44,6 +44,21 @@ open class KeyDef(
     var splitRowDisabled: Boolean = false
 
     /**
+     * 副标签位置微调，单位 dp，正数向右、向下。
+     *
+     * 第一个副标签（[Appearance.AltText.altText]，即「上标」）与第二个
+     * （[Appearance.AltText.altText1]，即「下标」）分别独立偏移，让用户按字体和
+     * 键高微调，而不是被迫接受固定的角落/居中位置。
+     *
+     * 与 [splitAfter] 一样放在 [KeyDef] 上而不是键类型的构造参数里：这些值对所有
+     * 带副标签的键型都适用，放进构造参数就得同步改十几个子类和它们的拷贝分支。
+     */
+    var swipeUpLabelOffsetX: Int = 0
+    var swipeUpLabelOffsetY: Int = 0
+    var swipeDownLabelOffsetX: Int = 0
+    var swipeDownLabelOffsetY: Int = 0
+
+    /**
      * Optional key definition that is used while IME is in composing state.
      * This must keep the same key type/size semantics as the base key.
      */

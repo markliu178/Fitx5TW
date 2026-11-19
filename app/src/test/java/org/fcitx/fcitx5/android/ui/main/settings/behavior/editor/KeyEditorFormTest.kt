@@ -278,6 +278,59 @@ class KeyEditorFormTest {
         assertFalse(form.validatedDraft(false)!!.containsKey("splitAfter"))
     }
 
+    /**
+     * 每个按键的上/下标偏移要能读出来、改完写回 JSON；清空则回到默认（删字段），
+     * 不能留下一个与默认值等效的 0 让布局文件越来越臃肿。
+     */
+    @Test fun perKeyAltLabelOffsetsAreEditableAndSavedInJson() = page { activity ->
+        val args = options(
+            mapOf(
+                "type" to "MacroKey", "label" to "T",
+                "swipeUpLabel" to "5", "swipeDownLabel" to "~",
+                "swipeUpLabelOffsetX" to 2, "swipeUpLabelOffsetY" to 5
+            )
+        )
+        val form = KeyEditorForm(activity, args)
+        activity.setContentView(form.view)
+
+        val upX = activity.getString(R.string.text_keyboard_layout_alt_up_offset_x)
+        val upY = activity.getString(R.string.text_keyboard_layout_alt_up_offset_y)
+        val downX = activity.getString(R.string.text_keyboard_layout_alt_down_offset_x)
+        assertEquals("2", field(form, upX).text.toString())
+        assertEquals("5", field(form, upY).text.toString())
+        assertEquals("", field(form, downX).text.toString())
+
+        field(form, upY).setText("7")
+        field(form, downX).setText("-3")
+        val saved = form.validatedDraft(false)!!
+        assertEquals(2, saved["swipeUpLabelOffsetX"])
+        assertEquals(7, saved["swipeUpLabelOffsetY"])
+        assertEquals(-3, saved["swipeDownLabelOffsetX"])
+        assertFalse(saved.containsKey("swipeDownLabelOffsetY"))
+
+        field(form, upX).setText("")
+        assertFalse(form.validatedDraft(false)!!.containsKey("swipeUpLabelOffsetX"))
+    }
+
+    /** 合成态覆盖键不提供偏移编辑项，也不把偏移带进覆盖键（位置永远跟随基础键）。 */
+    @Test fun composeOverrideHasNoAltLabelOffsets() = page { activity ->
+        val args = options(
+            mapOf(
+                "type" to "AlphabetKey", "main" to "a", "alt" to "A",
+                "swipeUpLabelOffsetX" to 4, "swipeUpLabelOffsetY" to -2
+            )
+        ).putExtra(KeyEditorForm.EXTRA_COMPOSE_OVERRIDE_EDITOR_MODE, true)
+        val form = KeyEditorForm(activity, args)
+        activity.setContentView(form.view)
+        assertFalse(
+            (form.view as ViewGroup).descendants.filterIsInstance<TextInputLayout>()
+                .any { it.hint == activity.getString(R.string.text_keyboard_layout_alt_up_offset_x) }
+        )
+        val saved = form.validatedDraft(false)!!
+        assertFalse(saved.containsKey("swipeUpLabelOffsetX"))
+        assertFalse(saved.containsKey("swipeUpLabelOffsetY"))
+    }
+
     private object NoOpListener : KeyboardLayoutAdapter.Listener {
         override fun onKeyClick(rowIndex: Int, keyIndex: Int) {}
         override fun onAddKeyClick(rowIndex: Int) {}

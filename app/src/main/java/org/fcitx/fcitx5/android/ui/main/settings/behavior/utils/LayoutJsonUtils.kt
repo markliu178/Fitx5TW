@@ -156,6 +156,10 @@ object LayoutJsonUtils {
         "swipeLabel",
         "swipeUpLabel",
         "swipeDownLabel",
+        "swipeUpLabelOffsetX",
+        "swipeUpLabelOffsetY",
+        "swipeDownLabelOffsetX",
+        "swipeDownLabelOffsetY",
         "sym",
         "weight",
         "rowHeightPercent",
@@ -423,6 +427,10 @@ object LayoutJsonUtils {
             swipeLabel = obj["swipeLabel"]?.jsonPrimitive?.contentOrNull,
             swipeUpLabel = obj["swipeUpLabel"]?.jsonPrimitive?.contentOrNull,
             swipeDownLabel = obj["swipeDownLabel"]?.jsonPrimitive?.contentOrNull,
+            swipeUpLabelOffsetX = parseOptionalInt(obj["swipeUpLabelOffsetX"]),
+            swipeUpLabelOffsetY = parseOptionalInt(obj["swipeUpLabelOffsetY"]),
+            swipeDownLabelOffsetX = parseOptionalInt(obj["swipeDownLabelOffsetX"]),
+            swipeDownLabelOffsetY = parseOptionalInt(obj["swipeDownLabelOffsetY"]),
             sym = obj["sym"]?.jsonPrimitive?.contentOrNull?.let { resolveKeysym(it) },
             weight = parseOptionalFloat(obj["weight"]),
             rowHeightPercent = parseOptionalFloat(obj["rowHeightPercent"]),
@@ -911,6 +919,11 @@ object LayoutJsonUtils {
         val swipeLabel: String? = null,  // 旧版非 Macro 划动提示
          val swipeUpLabel: String? = null,
          val swipeDownLabel: String? = null,
+        /** 副标签位置微调（dp，正数向右/向下），与 [KeyDef] 上的同名字段对应。 */
+        val swipeUpLabelOffsetX: Int? = null,
+        val swipeUpLabelOffsetY: Int? = null,
+        val swipeDownLabelOffsetX: Int? = null,
+        val swipeDownLabelOffsetY: Int? = null,
         val sym: Int? = null,  // NumPadKey 使用（Fcitx keysym）
         val weight: Float? = null,
         val textColor: Int? = null,
@@ -1130,6 +1143,11 @@ object LayoutJsonUtils {
         if (keyDef.splitRowDisabled) {
             json["splitRowDisabled"] = true
         }
+        // 偏移为 0 是绝大多数键的默认值，不写出去，避免布局文件与二维码载荷膨胀。
+        if (keyDef.swipeUpLabelOffsetX != 0) json["swipeUpLabelOffsetX"] = keyDef.swipeUpLabelOffsetX
+        if (keyDef.swipeUpLabelOffsetY != 0) json["swipeUpLabelOffsetY"] = keyDef.swipeUpLabelOffsetY
+        if (keyDef.swipeDownLabelOffsetX != 0) json["swipeDownLabelOffsetX"] = keyDef.swipeDownLabelOffsetX
+        if (keyDef.swipeDownLabelOffsetY != 0) json["swipeDownLabelOffsetY"] = keyDef.swipeDownLabelOffsetY
 
         return json
     }
@@ -1466,6 +1484,10 @@ object LayoutJsonUtils {
         // 布局文件平白多出一整片 `"splitAfter": false`，QR 分享的载荷也跟着膨胀。
         if (key.splitAfter == true) keyDef.splitAfter = true
         if (key.splitRowDisabled == true) keyDef.splitRowDisabled = true
+        keyDef.swipeUpLabelOffsetX = key.swipeUpLabelOffsetX ?: 0
+        keyDef.swipeUpLabelOffsetY = key.swipeUpLabelOffsetY ?: 0
+        keyDef.swipeDownLabelOffsetX = key.swipeDownLabelOffsetX ?: 0
+        keyDef.swipeDownLabelOffsetY = key.swipeDownLabelOffsetY ?: 0
         key.composeOverride?.let { override ->
             val overrideDef = createKeyDef(
                 override.copy(composeOverride = null, weight = null, rowHeightPercent = null),

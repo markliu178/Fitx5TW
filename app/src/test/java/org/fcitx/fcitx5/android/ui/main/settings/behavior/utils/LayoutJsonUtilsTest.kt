@@ -228,6 +228,58 @@ class LayoutJsonUtilsTest {
         assertNull(json["swipeLabel"])
     }
 
+    /**
+     * 每个按键的上/下标位置微调必须能完整往返：解析进 KeyDef，再序列化回 JSON 不丢。
+     *
+     * 丢任何一侧都会让用户在编辑器里调好的位置在保存/重载后悄悄回到默认值。
+     */
+    @Test
+    fun altLabelOffsetsSurviveRoundTrip() {
+        val parsed = LayoutJsonUtils.parseKeyJsonArray(
+            row(
+                """
+                [{
+                  "type": "MacroKey",
+                  "label": "T",
+                  "tap": {"macro": [{"type": "text", "text": "t"}]},
+                  "swipeUpLabel": "5",
+                  "swipeDownLabel": "~",
+                  "swipeUpLabelOffsetX": 2,
+                  "swipeUpLabelOffsetY": 5,
+                  "swipeDownLabelOffsetX": -1,
+                  "swipeDownLabelOffsetY": 3
+                }]
+                """.trimIndent()
+            )
+        )
+        assertEquals(1, parsed.size)
+        val def = LayoutJsonUtils.createKeyDef(parsed[0])!!
+        assertEquals(2, def.swipeUpLabelOffsetX)
+        assertEquals(5, def.swipeUpLabelOffsetY)
+        assertEquals(-1, def.swipeDownLabelOffsetX)
+        assertEquals(3, def.swipeDownLabelOffsetY)
+
+        val json = LayoutJsonUtils.keyDefToJson(def)
+        assertEquals(2, json["swipeUpLabelOffsetX"])
+        assertEquals(5, json["swipeUpLabelOffsetY"])
+        assertEquals(-1, json["swipeDownLabelOffsetX"])
+        assertEquals(3, json["swipeDownLabelOffsetY"])
+    }
+
+    /** 没有偏移时不应写出这些字段，保持现有布局文件与二维码载荷不变。 */
+    @Test
+    fun zeroAltLabelOffsetsAreNotWritten() {
+        val parsed = LayoutJsonUtils.parseKeyJsonArray(
+            row("""[{"type": "AlphabetKey", "main": "t", "alt": "5"}]""")
+        )
+        val def = LayoutJsonUtils.createKeyDef(parsed[0])!!
+        val json = LayoutJsonUtils.keyDefToJson(def)
+        assertFalse(json.containsKey("swipeUpLabelOffsetX"))
+        assertFalse(json.containsKey("swipeUpLabelOffsetY"))
+        assertFalse(json.containsKey("swipeDownLabelOffsetX"))
+        assertFalse(json.containsKey("swipeDownLabelOffsetY"))
+    }
+
     private fun macroKey(label: String, displayText: String?): MacroKey {
         val displayFragment = displayText?.let { """"displayText": "$it",""" }.orEmpty()
         val parsed = LayoutJsonUtils.parseKeyJsonArray(

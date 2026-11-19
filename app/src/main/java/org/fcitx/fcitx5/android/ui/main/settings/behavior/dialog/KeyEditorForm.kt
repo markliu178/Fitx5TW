@@ -99,7 +99,8 @@ class KeyEditorForm(
         listOf(alphabetWeightEdit, layoutSwitchWeightEdit, symbolWeightEdit, macroWeightEdit,
             simpleWeightEdit, placeholderWeightEdit).forEach { sectionFor(it, 2) }
         listOf(nonMacroSwipeLabelEdit, nonMacroSwipeUpLabelEdit, nonMacroSwipeDownLabelEdit,
-            macroLongPressLabelEdit).forEach { sectionFor(it, 1) }
+            macroLongPressLabelEdit, altUpOffsetXEdit, altUpOffsetYEdit,
+            altDownOffsetXEdit, altDownOffsetYEdit).forEach { sectionFor(it, 1) }
         val children = (0 until fieldsContainer.childCount).map(fieldsContainer::getChildAt)
         fieldsContainer.removeAllViews()
         val typeRow = typeSpinner.parent as View
@@ -177,6 +178,12 @@ class KeyEditorForm(
     private var nonMacroSwipeLabelEdit: EditText? = null
     private var nonMacroSwipeUpLabelEdit: EditText? = null
     private var nonMacroSwipeDownLabelEdit: EditText? = null
+
+    // 每个按键独立的上/下标位置微调（dp）；只影响当前键。
+    private var altUpOffsetXEdit: EditText? = null
+    private var altUpOffsetYEdit: EditText? = null
+    private var altDownOffsetXEdit: EditText? = null
+    private var altDownOffsetYEdit: EditText? = null
 
     // 空白占位键专用字段。
     private var placeholderMainEdit: EditText? = null
@@ -422,6 +429,10 @@ class KeyEditorForm(
         nonMacroSwipeLabelEdit = null
         nonMacroSwipeUpLabelEdit = null
         nonMacroSwipeDownLabelEdit = null
+        altUpOffsetXEdit = null
+        altUpOffsetYEdit = null
+        altDownOffsetXEdit = null
+        altDownOffsetYEdit = null
         placeholderMainEdit = null
         placeholderAltEdit = null
         placeholderWeightEdit = null
@@ -968,6 +979,7 @@ class KeyEditorForm(
         }
 
         if (!composeOverrideEditorMode) {
+            addAltLabelOffsetEditors(keyData)
             val appearanceStart = fieldsContainer.childCount
             splitAfterCheckBox = uiBuilder.createSplitBoundaryCheckbox(
                 fieldsContainer, keyData["splitAfter"] == true
@@ -1254,6 +1266,73 @@ class KeyEditorForm(
             ?.let { draft["swipeUpLabel"] = it }
         nonMacroSwipeDownLabelEdit?.text?.toString()?.trim()?.takeIf { it.isNotEmpty() }
             ?.let { draft["swipeDownLabel"] = it }
+    }
+
+    /**
+     * 上/下标位置微调（每个按键独立，单位 dp）。
+     *
+     * 字母键的标点副标签只有上标一个槽位；其余带方向标签的键型（符号、宏、功能键等）
+     * 上/下标分别独立。占位键与空格键也只显示上标字段。
+     */
+    private fun addAltLabelOffsetEditors(keyData: Map<String, Any?>) {
+        val hasDownLabel = selectedType in setOf(
+            "LayoutSwitchKey", "SymbolKey", "MacroKey", "CapsKey", "ReturnKey", "BackspaceKey"
+        )
+        val supportsAltLabel = hasDownLabel || selectedType in setOf(
+            "AlphabetKey", "SpaceKey", "PlaceholderKey"
+        )
+        if (!supportsAltLabel) return
+
+        fieldsContainer.addView(
+            uiBuilder.createNoticeField(
+                getString(R.string.text_keyboard_layout_alt_label_offset_hint)
+            ).also { it.tag = 1 }
+        )
+
+        fun offsetText(field: String): String =
+            (keyData[field] as? Number)?.toInt()?.takeIf { it != 0 }?.toString() ?: ""
+
+        val upX = uiBuilder.createEditField(
+            getString(R.string.text_keyboard_layout_alt_up_offset_x),
+            offsetText("swipeUpLabelOffsetX")
+        )
+        altUpOffsetXEdit = upX.second
+        fieldsContainer.addView(upX.first)
+
+        val upY = uiBuilder.createEditField(
+            getString(R.string.text_keyboard_layout_alt_up_offset_y),
+            offsetText("swipeUpLabelOffsetY")
+        )
+        altUpOffsetYEdit = upY.second
+        fieldsContainer.addView(upY.first)
+
+        if (!hasDownLabel) return
+
+        val downX = uiBuilder.createEditField(
+            getString(R.string.text_keyboard_layout_alt_down_offset_x),
+            offsetText("swipeDownLabelOffsetX")
+        )
+        altDownOffsetXEdit = downX.second
+        fieldsContainer.addView(downX.first)
+
+        val downY = uiBuilder.createEditField(
+            getString(R.string.text_keyboard_layout_alt_down_offset_y),
+            offsetText("swipeDownLabelOffsetY")
+        )
+        altDownOffsetYEdit = downY.second
+        fieldsContainer.addView(downY.first)
+    }
+
+    private fun appendAltLabelOffsets(draft: MutableMap<String, Any?>) {
+        listOf(
+            "swipeUpLabelOffsetX" to altUpOffsetXEdit,
+            "swipeUpLabelOffsetY" to altUpOffsetYEdit,
+            "swipeDownLabelOffsetX" to altDownOffsetXEdit,
+            "swipeDownLabelOffsetY" to altDownOffsetYEdit
+        ).forEach { (field, edit) ->
+            val value = edit?.text?.toString()?.trim()?.toIntOrNull()
+            if (value != null && value != 0) draft[field] = value else draft.remove(field)
+        }
     }
 
     private fun renderColorEditors() {
@@ -1769,6 +1848,7 @@ class KeyEditorForm(
             }
         }
         if (!composeOverrideEditorMode) {
+            appendAltLabelOffsets(draft)
             // Row height stays in row settings; the split boundary can also be edited on this key.
             keyData["rowHeightPercent"]?.let { draft["rowHeightPercent"] = it }
             if (splitAfterCheckBox?.isChecked == true) draft["splitAfter"] = true
