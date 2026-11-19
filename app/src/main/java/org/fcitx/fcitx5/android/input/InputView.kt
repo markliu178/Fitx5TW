@@ -2498,10 +2498,15 @@ class InputView(
             adjustingOverlay.visibility = GONE
             keyboardView.isEnabled = true
             keyboardView.isClickable = true
-            // keyboardView has no stateful background (its background is the child customBackground).
-            // If it is focusable and takes focus while not in touch mode, the framework paints a
-            // default focus highlight over its whole bounds, greying out the entire keyboard.
-            keyboardView.isFocusable = false
+            // 原始代码退出 adjusting mode 时把 keyboardView 设为 focusable。这里保持与
+            // 上游一致：移除改为 false 的尝试。部分 OEM（One UI / 三星）内部可能依赖
+            // IME 窗口里存在可聚焦 View 来判断是否应弹出。
+            //
+            // 同时，keyboardView 自身没有 stateful background（背景由子 View customBackground
+            // 提供），可聚焦意味着框架可能在非 touch mode 时画默认焦点高亮（整块键盘发灰）。
+            // 上游原始实现也面临这个问题——我们后续再评估替代方案（如给 keyboardView 挂一个
+            // 空 state list drawable 但又不影响它显示背景）。
+            keyboardView.isFocusable = true
         }
         // Bring floating move handle to front to ensure it's visible above overlay when in adjusting mode
         if (isAdjustingMode) {
