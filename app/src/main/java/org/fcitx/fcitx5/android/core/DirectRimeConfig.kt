@@ -44,6 +44,8 @@ internal class DirectRimeConfig(private val context: Context) {
             ?: saved?.findByName("ExternalPaths")?.value?.takeIf { it.isNotBlank() }
                 ?.let { RimeDataDirectoryState.decodePaths(null, it, names) }.orEmpty()
         names.forEach { profiles[it] = external[it]?.let(::File) ?: File(dataRoot, it) }
+        // Profiles copied into data/ outside the ZIP import flow are valid schemes too.
+        refreshProfiles()
         current = saved?.findByName("Current")?.value?.takeIf { it in profiles } ?: names.first()
         // Keep legacy registrations available for recovery, but destructive operations below
         // refuse to touch any directory containing another registered profile.
@@ -75,11 +77,30 @@ internal class DirectRimeConfig(private val context: Context) {
         }
     }
 
-    fun directoryState() = RawConfig(arrayOf(
-        RawConfig("Current", current), RawConfig("Profiles", profiles.keys.joinToString("\n")),
-        RawConfig("PathsV2", profiles.entries.joinToString("\n") { "${hex(it.key)}|${hex(it.value.absolutePath)}" }),
-        RawConfig("Error", error)
-    ))
+    fun directoryState(): RawConfig {
+        refreshProfiles()
+        return RawConfig(arrayOf(
+            RawConfig("Current", current), RawConfig("Profiles", profiles.keys.joinToString("\n")),
+            RawConfig("PathsV2", profiles.entries.joinToString("\n") { "${hex(it.key)}|${hex(it.value.absolutePath)}" }),
+            RawConfig("Error", error)
+        ))
+    }
+
+    /** Adds scheme directories copied into [dataRoot] directly, keeping external paths intact. */
+    private fun refreshProfiles() {
+        val known = profiles.values.map { it.canonicalFile }
+        dataRoot.listFiles().orEmpty().forEach { file ->
+            val name = file.name
+            if (!file.isDirectory || name.startsWith(".") || name in profiles ||
+                !RimeDataDirectoryState.isValidName(name)) return@forEach
+            val canonical = file.canonicalFile
+            if (known.none { RimeProfileRestorePlan.overlap(it, canonical) }) profiles[name] = file
+        }
+    }
+
+    private fun isInternal(name: String, file: File): Boolean = runCatching {
+        file.canonicalFile == File(dataRoot, name).canonicalFile
+    }.getOrDefault(false)
 
     fun requireUpdateTarget(name: String, path: String) {
         require(error.isBlank()) { error }
@@ -109,7 +130,7 @@ internal class DirectRimeConfig(private val context: Context) {
     }
 
     private fun directoriesText(next: Map<String, File>, selected: String): String {
-        val external = next.filter { (name, file) -> file.absolutePath != File(dataRoot, name).absolutePath }
+        val external = next.filter { (name, file) -> !isInternal(name, file) }
             .mapValues { it.value.absolutePath }
         val state = RimeDataDirectoryState(selected, next.keys.toList(), next.mapValues { it.value.absolutePath })
         val portable = state.portableConfig().substringBefore("ExternalPaths=")
@@ -142,7 +163,7 @@ internal class DirectRimeConfig(private val context: Context) {
         require(RimeDataDirectoryState.isValidName(name) && name !in profiles) { "目录名称无效或已存在" }
         val file = if (path.isEmpty()) File(dataRoot, name) else {
             require((path.startsWith('/') || File(path).isAbsolute) && '\u0000' !in path) { "无效的外部目录" }
-            File(path)
+            File(path).let { if (isInternal(name, it)) File(dataRoot, name) else it }
         }
         requireSeparatePath(file)
         org.fcitx.fcitx5.android.data.UserDataRestoreRuntime.requirePathReady(context, file)
@@ -169,7 +190,7 @@ internal class DirectRimeConfig(private val context: Context) {
     fun rename(name: String, newName: String) {
         require(name in profiles && RimeDataDirectoryState.isValidName(newName) && newName !in profiles) { "目录名称无效或已存在" }
         val old = profiles.getValue(name)
-        val internal = old.absolutePath == File(dataRoot, name).absolutePath
+        val internal = isInternal(name, old)
         val target = if (internal) File(dataRoot, newName) else old
         org.fcitx.fcitx5.android.data.UserDataRestoreRuntime.requirePathReady(context, old)
         org.fcitx.fcitx5.android.data.UserDataRestoreRuntime.requirePathReady(context, target)
@@ -194,7 +215,7 @@ internal class DirectRimeConfig(private val context: Context) {
         require(name != current) { "请先切换到其他目录" }
         val file = profiles.getValue(name)
         org.fcitx.fcitx5.android.data.UserDataRestoreRuntime.requirePathReady(context, file)
-        val internal = file.absolutePath == File(dataRoot, name).absolutePath
+        val internal = isInternal(name, file)
         val next = LinkedHashMap(profiles).apply { remove(name) }
         if (internal) {
             requireNoNestedProfiles(name, file)

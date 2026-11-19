@@ -1027,6 +1027,7 @@
     <string name="settings_group_convenience">便捷功能</string>
     <string name="settings_group_convenience_summary">剪貼簿、文字編輯、表情符號與外掛設定</string>
     <string name="settings_group_data">備份與還原</string>
+    <string name="settings_group_backup_updates">備份和更新</string>
     <string name="settings_group_data_summary">方案與應用程式資料的備份與還原、萬象方案更新</string>
     <string name="scheme_export">方案匯出</string>
     <string name="scheme_export_summary">僅匯出全部 Rime 方案目錄，不含應用程式設定</string>

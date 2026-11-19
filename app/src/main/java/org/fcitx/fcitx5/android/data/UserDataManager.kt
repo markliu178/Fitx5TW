@@ -119,14 +119,15 @@ object UserDataManager {
     private val externalDir get() = appContext.getExternalFilesDir(null)!!
     private val recentlyUsedDir get() = appContext.filesDir.resolve(RecentlyUsed.DIR_NAME)
 
-    private fun writeExternalAppData(zipStream: ZipOutputStream, rimeDirectories: RimeDataDirectoryState) {
+    private fun writeExternalAppData(zipStream: ZipOutputStream) {
         val root = externalDir.canonicalFile
         val config = File(root, RimeDataDirectoryState.CONFIG_PATH).canonicalFile
-        val profileDirs = rimeDirectories.profiles
-            .map { File(root, "data/$it").canonicalFile }.toSet()
+        // Everything under data/ is Rime scheme data (registered or copied in), so it is
+        // covered by the scheme backup and must never leak into the app backup.
+        val profileRoot = File(root, "data").canonicalFile
         BackupFileTree.write(root, "external", zipStream) { file ->
             val canonical = file.canonicalFile
-            canonical == config || canonical in profileDirs
+            canonical == config || canonical == profileRoot
         }
     }
 
@@ -146,7 +147,7 @@ object UserDataManager {
                         writeFileTree(scripts, "js-voice", zipStream) { !it.name.endsWith(".js") }
                     }
                     writeDatabases(zipStream)
-                    writeExternalAppData(zipStream, rimeDirectories)
+                    writeExternalAppData(zipStream)
                 }
                 else -> {
                     // shared_prefs (current variant's prefs XML renamed to canonical upstream name)

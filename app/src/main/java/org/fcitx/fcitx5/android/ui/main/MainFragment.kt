@@ -182,7 +182,7 @@ class MainFragment : PaddingPreferenceFragment() {
                 // 数据与备份从「高级」拆出：导入导出是用户主动执行的独立任务，
                 // 与「兼容性开关」这种一次性配置混在一页里互相干扰。
                 addDestinationPreference(
-                    R.string.settings_group_data,
+                    R.string.settings_group_backup_updates,
                     R.drawable.ic_baseline_settings_backup_restore_24,
                     SettingsRoute.DataBackup,
                     R.string.settings_group_data_summary

@@ -1081,6 +1081,7 @@
     <string name="settings_group_convenience">Convenience</string>
     <string name="settings_group_convenience_summary">Clipboard, text editing, symbols and plugin settings</string>
     <string name="settings_group_data">Backup &amp; restore</string>
+    <string name="settings_group_backup_updates">Backup &amp; updates</string>
     <string name="settings_group_data_summary">Back up and restore schemes and app data, Wanxiang scheme updates</string>
     <string name="scheme_export">Export schemes</string>
     <string name="scheme_export_summary">Export all Rime scheme directories only, without app settings</string>

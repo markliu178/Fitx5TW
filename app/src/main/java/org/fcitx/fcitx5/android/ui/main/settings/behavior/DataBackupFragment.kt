@@ -8,6 +8,9 @@ import android.os.Build
 import android.os.Bundle
 import android.net.Uri
 import android.provider.DocumentsContract
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.LeadingMarginSpan
 import android.widget.TextView
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
@@ -464,6 +467,8 @@ class DataBackupFragment : PaddingPreferenceFragment() {
             holder.itemView.isLongClickable = onColorLongClick != null
             val title = holder.findViewById(android.R.id.title) as? TextView
             val summary = holder.findViewById(android.R.id.summary) as? TextView
+            title?.indentFirstLine()
+            summary?.indentFirstLine()
             if (textColor != 0) {
                 title?.setTextColor(textColor)
                 summary?.setTextColor(textColor)
@@ -472,6 +477,16 @@ class DataBackupFragment : PaddingPreferenceFragment() {
                 title?.setTextColor(ContextCompat.getColorStateList(context, R.color.settings_text_primary))
                 summary?.setTextColor(ContextCompat.getColorStateList(context, R.color.settings_text_secondary))
             }
+        }
+
+        /** First-line indent of two full-width characters, matching Chinese paragraph style. */
+        private fun TextView.indentFirstLine() {
+            val text = text?.toString().orEmpty()
+            if (text.isEmpty()) return
+            val indent = paint.measureText("\u4E00\u4E00").toInt()
+            setText(SpannableString(text).apply {
+                setSpan(LeadingMarginSpan.Standard(indent, 0), 0, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            })
         }
     }
 }

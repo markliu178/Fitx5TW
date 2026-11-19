@@ -11,7 +11,6 @@ import android.os.Environment
 import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import android.provider.Settings
-import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -426,8 +425,8 @@ class RimeImportActivity : SettingsUiActivity() {
         val box = TextInputLayout(this).apply {
             hint = getString(R.string.direct_rime_profile_name_label)
             setPadding((24 * density).toInt(), (8 * density).toInt(), (24 * density).toInt(), 0)
-            addView(input, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT))
+            addView(input, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT))
         }
         var reported = false
         val dialog = MaterialAlertDialogBuilder(this)

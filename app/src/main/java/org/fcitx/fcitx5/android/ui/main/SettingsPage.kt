@@ -117,7 +117,7 @@ private fun Fragment.settingsPageTitle(): String {
         is SymbolSettingsFragment -> R.string.emoji_and_symbols
         is TextEditingSettingsFragment -> R.string.text_editing
         is KeyboardModesFragment -> R.string.keyboard_modes_title
-        is DataBackupFragment -> R.string.settings_group_data
+        is DataBackupFragment -> R.string.settings_group_backup_updates
         is AdvancedSettingsFragment -> R.string.advanced
         is DeveloperFragment -> R.string.developer
         is LicensesFragment -> R.string.license

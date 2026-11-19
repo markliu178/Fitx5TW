@@ -236,7 +236,7 @@ sealed class SettingsRoute : Parcelable {
             }
             // 数据与备份从「高级」拆出，见 DataBackupFragment 的说明。
             fragment<DataBackupFragment, DataBackup> {
-                label = ctx.getString(R.string.settings_group_data)
+                label = ctx.getString(R.string.settings_group_backup_updates)
             }
             fragment<DeveloperFragment, Developer> {
                 label = ctx.getString(R.string.developer)

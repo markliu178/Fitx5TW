@@ -103,7 +103,8 @@ object SettingsSearchIndex {
     private val P_KEYBOARD = listOf(R.string.settings_search_group_android, R.string.virtual_keyboard)
     private val P_THEME = listOf(R.string.settings_search_group_android, R.string.theme)
     private val P_ADVANCED = listOf(R.string.settings_search_group_android, R.string.advanced)
-    private val P_DATA = listOf(R.string.settings_search_group_android, R.string.settings_group_data)
+    private val P_DATA = listOf(R.string.settings_search_group_android,
+        R.string.settings_group_backup_updates, R.string.settings_group_data)
     private val P_APPEARANCE =
         listOf(R.string.settings_search_group_android, R.string.settings_group_appearance)
     private val P_CONVENIENCE =
@@ -1005,7 +1006,7 @@ object SettingsSearchIndex {
 
         /* ===== Android：备份与恢复 ===== */
         SettingsSearchEntry(
-            R.string.settings_group_data, P_ANDROID,
+            R.string.settings_group_backup_updates, P_ANDROID,
             listOf("data", "backup", "restore", "数据", "备份", "恢复", "导入导出"),
             route = SettingsRoute.DataBackup
         ),
