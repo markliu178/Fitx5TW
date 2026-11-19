@@ -262,7 +262,12 @@ class SymbolPanelUi(
                     )
                 }
                 isClickable = true
-                isFocusable = true
+                // Sidebar tabs (symbol panel pages) use a RecyclerView. Leaving items focusable
+                // would allow Android's auto-assign focus to land here when leaving touch mode,
+                // painting a default focus highlight (plain GradientDrawable background, no state)
+                // over the tab. Touch-based navigation in the symbol panel does not need D-pad
+                // focusability.
+                isFocusable = false
                 contentDescription = null
             }
             return SidebarHolder(label)

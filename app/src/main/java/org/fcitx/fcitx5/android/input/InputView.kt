@@ -1157,7 +1157,10 @@ class InputView(
         // Background set via updateAdjustingHandleAppearance
         // Larger touch area, visual handle is smaller and centered
         isClickable = true
-        isFocusable = true
+        // Handles have a plain GradientDrawable (accentKeyBackgroundColor) — no state.
+        // Leaving them focusable would paint a default focus highlight over the handle if the
+        // window leaves touch mode during adjusting. Touch handling does not need focus.
+        isFocusable = false
         setOnTouchListener { v, event ->
             if (!isAdjustingMode) return@setOnTouchListener false
             when (event.actionMasked) {
@@ -1325,8 +1328,12 @@ class InputView(
         visibility = GONE
         backgroundColor = Color.TRANSPARENT
         isClickable = true
-        isFocusable = true
-        isFocusableInTouchMode = true
+        // adjustingOverlay only exists during adjusting mode (visibility toggled). It covers the
+        // whole keyboard and must accept touch to block underlying keys. Android focus is
+        // unnecessary here — the overlay's sole purpose is to intercept MotionEvents until the
+        // user confirms/cancels adjusting.
+        isFocusable = false
+        isFocusableInTouchMode = false
         setOnTouchListener { _, _ -> true }
     }
 
@@ -1337,7 +1344,7 @@ class InputView(
         textSize = 13f
         setPadding(dp(12), dp(4), dp(12), dp(4))
         isClickable = true
-        isFocusable = true
+        isFocusable = false
         setOnClickListener { exitAdjustingMode() }
     }
 
@@ -1348,7 +1355,7 @@ class InputView(
         textSize = 13f
         setPadding(dp(12), dp(4), dp(12), dp(4))
         isClickable = true
-        isFocusable = true
+        isFocusable = false
         setOnClickListener {
             val targetHeightDefault = if (isLayoutLandscape) {
                 keyboardPrefs.keyboardHeightPercentLandscape.defaultValue
@@ -4038,7 +4045,12 @@ class InputView(
                 setPadding(padH, padV, padH, padV)
                 isSingleLine = true
                 isClickable = true
-                isFocusable = true
+                // Aux bar buttons have a plain GradientDrawable background (no state). Keeping
+                // them focusable would cause the framework to draw a default focus highlight
+                // overlay (?attr/selectableItemBackground) over the button bounds whenever the
+                // window leaves touch mode and focus lands here — a solid grey rectangle.
+                // Touch interactions (clicking the auxiliary action) do not need view focus.
+                isFocusable = false
                 // Reuse the existing drawable when the style is unchanged; only its colour and
                 // radius are theme-dependent.
                 val existing = background as? GradientDrawable
