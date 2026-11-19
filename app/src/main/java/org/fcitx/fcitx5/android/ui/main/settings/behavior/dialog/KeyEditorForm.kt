@@ -2376,6 +2376,7 @@ class KeyEditorForm(
             }
         }
         if (!composeOverrideEditorMode) {
+            appendAltLabelOffsets(newKey)
             // Row height stays in row settings; the split boundary can also be edited on this key.
             keyData["rowHeightPercent"]?.let { newKey["rowHeightPercent"] = it }
             if (splitAfterCheckBox?.isChecked == true) newKey["splitAfter"] = true
