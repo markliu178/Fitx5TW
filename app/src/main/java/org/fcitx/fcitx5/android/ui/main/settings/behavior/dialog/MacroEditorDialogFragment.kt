@@ -1567,17 +1567,11 @@ class MacroEditorDialogFragment : DialogFragment() {
                     setOnClickListener {
                         val newKey = KeyData()
                         showEditKeyDialog(step, newKey, onSuccess = {
-                            // Check if the key already exists
-                            val isDuplicate = step.keys.any {
-                                it.keyType == newKey.keyType && it.code == newKey.code
-                            }
-                            if (isDuplicate) {
-                                Toast.makeText(requireContext(), getString(R.string.macro_editor_key_duplicate, newKey.code), Toast.LENGTH_SHORT).show()
-                            } else {
-                                step.keys.add(newKey)
-                                renderKeys(step)
-                                updateSaveButtonState()
-                            }
+                            // 同一步骤允许多次加入同一个按键，例如「点击 A」之后
+                            // 再「点击 A」构成连按；这里不再做重复校验。
+                            step.keys.add(newKey)
+                            renderKeys(step)
+                            updateSaveButtonState()
                         }, onCancel = {})
                     }
                 }

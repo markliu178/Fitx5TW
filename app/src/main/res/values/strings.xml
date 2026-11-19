@@ -760,6 +760,8 @@
     <string name="text_keyboard_layout_macro_swipe_event">Swipe Event</string>
     <string name="text_keyboard_layout_macro_swipe_up_event">Swipe Event (Up)</string>
     <string name="text_keyboard_layout_macro_swipe_down_event">Swipe Event (Down)</string>
+    <string name="text_keyboard_layout_macro_swipe_left_event">Swipe Event (Left)</string>
+    <string name="text_keyboard_layout_macro_swipe_right_event">Swipe Event (Right)</string>
     <string name="text_keyboard_layout_macro_longpress_event">Long Press Event</string>
     <string name="text_keyboard_layout_longpress_label">Long Press Label</string>
     <string name="text_keyboard_layout_longpress_label_fallback_hint">Empty means using Label in popup</string>
@@ -775,6 +777,12 @@
     <string name="text_keyboard_layout_alt_up_offset_y">Up Label Y Offset</string>
     <string name="text_keyboard_layout_alt_down_offset_x">Down Label X Offset</string>
     <string name="text_keyboard_layout_alt_down_offset_y">Down Label Y Offset</string>
+    <string name="text_keyboard_layout_row_alt_offset_title">Whole-row label offset (dp). Positive values move right/down; final position adds the per-key offset. 0 keeps the default.</string>
+    <string name="text_keyboard_layout_row_alt_up_offset_x">Row Up Label X Offset</string>
+    <string name="text_keyboard_layout_row_alt_up_offset_y">Row Up Label Y Offset</string>
+    <string name="text_keyboard_layout_row_alt_down_offset_x">Row Down Label X Offset</string>
+    <string name="text_keyboard_layout_row_alt_down_offset_y">Row Down Label Y Offset</string>
+    <string name="layout_editor_offset_invalid">Enter a whole number</string>
     <string name="text_keyboard_layout_space_label">Space Key Label</string>
     <string name="text_keyboard_layout_space_label_hint">Leave blank to show the current scheme name (or Chinese/ASCII state) automatically.</string>
     <string name="text_keyboard_layout_space_swipe_hint">Only takes effect when "Swipe on space key to move cursor" is turned off; while it is on, swiping the space key moves the cursor instead.</string>

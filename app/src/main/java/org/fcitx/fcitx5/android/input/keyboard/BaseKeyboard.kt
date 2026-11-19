@@ -236,7 +236,15 @@ abstract class BaseKeyboard(
      * 且**都不注册** [KeyDef.Behavior.Swipe]——通用 Swipe 绑定会把横向阈值改写成
      * `disabledSwipeThreshold`，那会直接废掉光标模式的移动（见 [createKeyView]）。
      */
-    private data class SpaceKeyEntry(val keyView: KeyView, val swipeAction: MacroAction?)
+    private data class SpaceKeyEntry(
+        val keyView: KeyView,
+        val swipeAction: MacroAction?,
+        val swipeLeftAction: MacroAction?,
+        val swipeRightAction: MacroAction?
+    ) {
+        val hasHorizontalSwipe: Boolean
+            get() = swipeLeftAction != null || swipeRightAction != null
+    }
 
     private val spaceKeys = mutableListOf<SpaceKeyEntry>()
 
@@ -247,21 +255,25 @@ abstract class BaseKeyboard(
      * `swipeEnabled = false`，这样手指在空格键上移动不会取消长按（语音输入的按住说话
      * 依赖长按判定，误取消会让录音半途中断）。
      */
-    private fun spaceSwipeEnabledFor(swipeAction: MacroAction?): Boolean =
-        resolveSpaceSwipeEnabled(spaceSwipeMoveCursor.getValue(), swipeAction)
+    private fun spaceSwipeEnabledFor(
+        swipeAction: MacroAction?,
+        hasHorizontalSwipe: Boolean = false
+    ): Boolean =
+        resolveSpaceSwipeEnabled(spaceSwipeMoveCursor.getValue(), swipeAction, hasHorizontalSwipe)
 
     /**
      * 按当前开关设定空格键的两轴阈值。两种模式互斥，所以同一时刻只有一套阈值生效。
      *
      * 光标模式用小的选择阈值（逐格移动光标）；划动模式关掉横向、纵向用常规输入阈值
-     * （与其它键的 [KeyDef.Behavior.Swipe] 一致）。
+     * （与其它键的 [KeyDef.Behavior.Swipe] 一致），只有配置了左/右滑动作时才打开横向。
      */
-    private fun applySpaceSwipeThresholds(view: KeyView) {
+    private fun applySpaceSwipeThresholds(view: KeyView, hasHorizontalSwipe: Boolean = false) {
         if (spaceSwipeMoveCursor.getValue()) {
             view.swipeThresholdX = spaceCursorSwipeThreshold
             view.swipeThresholdY = selectionSwipeThreshold * 1.5f
         } else {
-            view.swipeThresholdX = disabledSwipeThreshold
+            view.swipeThresholdX =
+                if (hasHorizontalSwipe) inputSwipeThreshold else disabledSwipeThreshold
             view.swipeThresholdY = inputSwipeThreshold
         }
     }
@@ -273,14 +285,21 @@ abstract class BaseKeyboard(
      * 是 data class，其 `equals` 会逐字段比较，两个内容相同的条目（同一布局里多个空格键
      * 配了同一动作）会互相匹配到对方的槽位，把动作写到错的视图上。
      */
-    private fun registerSpaceKeyEntry(view: KeyView, swipeAction: MacroAction?) {
+    private fun registerSpaceKeyEntry(
+        view: KeyView,
+        swipeAction: MacroAction?,
+        swipeLeftAction: MacroAction?,
+        swipeRightAction: MacroAction?
+    ) {
         for (i in spaceKeys.indices) {
             if (spaceKeys[i].keyView === view) {
-                spaceKeys[i] = SpaceKeyEntry(view, swipeAction)
+                spaceKeys[i] = SpaceKeyEntry(
+                    view, swipeAction, swipeLeftAction, swipeRightAction
+                )
                 return
             }
         }
-        spaceKeys.add(SpaceKeyEntry(view, swipeAction))
+        spaceKeys.add(SpaceKeyEntry(view, swipeAction, swipeLeftAction, swipeRightAction))
     }
 
     /**
@@ -297,8 +316,9 @@ abstract class BaseKeyboard(
         // 手势监听器运行时读取开关（见 createKeyView），因此切模式只需同步"是否参与
         // 手势"与阈值。已记录的基线也要一起更新，否则下一次重绑会从基线恢复出旧值。
         spaceKeys.forEach { entry ->
-            entry.keyView.swipeEnabled = spaceSwipeEnabledFor(entry.swipeAction)
-            applySpaceSwipeThresholds(entry.keyView)
+            entry.keyView.swipeEnabled =
+                spaceSwipeEnabledFor(entry.swipeAction, entry.hasHorizontalSwipe)
+            applySpaceSwipeThresholds(entry.keyView, entry.hasHorizontalSwipe)
             gestureBaselines[entry.keyView]?.let { baseline ->
                 gestureBaselines[entry.keyView] = baseline.copy(
                     swipeEnabled = entry.keyView.swipeEnabled,
@@ -589,9 +609,16 @@ abstract class BaseKeyboard(
                     // app restarted. Re-register and re-apply both the flag and the thresholds,
                     // and keep the recorded baseline in step (see [gestureBaselines]).
                     val swipeAction = (def as? SpaceKey)?.swipe
-                    registerSpaceKeyEntry(keyView, swipeAction)
-                    keyView.swipeEnabled = spaceSwipeEnabledFor(swipeAction)
-                    applySpaceSwipeThresholds(keyView)
+                    val swipeLeftAction = (def as? SpaceKey)?.swipeLeft
+                    val swipeRightAction = (def as? SpaceKey)?.swipeRight
+                    val hasHorizontalSwipe =
+                        swipeLeftAction != null || swipeRightAction != null
+                    registerSpaceKeyEntry(
+                        keyView, swipeAction, swipeLeftAction, swipeRightAction
+                    )
+                    keyView.swipeEnabled =
+                        spaceSwipeEnabledFor(swipeAction, hasHorizontalSwipe)
+                    applySpaceSwipeThresholds(keyView, hasHorizontalSwipe)
                     // 复用行不会走 applyBehaviorPopupBindings，重复绑定要在这一起重放
                     // （与划动开关同一理由：视图保留着上次创建时的值）。
                     applySpaceRepeatBinding(keyView)
@@ -1747,10 +1774,11 @@ abstract class BaseKeyboard(
         }.apply {
             statisticsKeyLabel = KeyboardStatisticsLayout.label(def)
             // 副标签偏移只跟随基础键定义：合成态换文字时位置不应跳动。
-            altLabelOffsetX = def.swipeUpLabelOffsetX
-            altLabelOffsetY = def.swipeUpLabelOffsetY
-            altLabel1OffsetX = def.swipeDownLabelOffsetX
-            altLabel1OffsetY = def.swipeDownLabelOffsetY
+            // 行设置写入的整行偏移与单键偏移相加，见 KeyDef.rowSwipeUpLabelOffsetX 的说明。
+            altLabelOffsetX = def.swipeUpLabelOffsetX + def.rowSwipeUpLabelOffsetX
+            altLabelOffsetY = def.swipeUpLabelOffsetY + def.rowSwipeUpLabelOffsetY
+            altLabel1OffsetX = def.swipeDownLabelOffsetX + def.rowSwipeDownLabelOffsetX
+            altLabel1OffsetY = def.swipeDownLabelOffsetY + def.rowSwipeDownLabelOffsetY
             if (statisticsKeyLabel != null) {
                 statisticsKeys[this] = Unit
                 onStatisticsPress = ::recordStatisticsPress
@@ -1766,15 +1794,18 @@ abstract class BaseKeyboard(
             if (def is SpaceKey || def is MiniSpaceKey) {
                 // 仅 SpaceKey 支持在布局编辑器里配置划动动作；MiniSpaceKey 保持纯光标语义。
                 val swipeAction = (def as? SpaceKey)?.swipe
+                val swipeLeftAction = (def as? SpaceKey)?.swipeLeft
+                val swipeRightAction = (def as? SpaceKey)?.swipeRight
+                val hasHorizontalSwipe = swipeLeftAction != null || swipeRightAction != null
                 // 自定义空格标签：空/纯空白视为未设置，交回 TextKeyboard 按方案名显示。
                 // 取 activeDef 而不是基础 def：合成态用的是 composeOverride 里的键定义，
                 // 标签也必须跟着换，否则合成时仍显示普通态的标签。
                 (this as? TextKeyView)?.spaceLabelOverride =
                     (activeDef as? SpaceKey)?.label?.takeIf { it.isNotBlank() }
-                registerSpaceKeyEntry(this, swipeAction)
-                swipeEnabled = spaceSwipeEnabledFor(swipeAction)
+                registerSpaceKeyEntry(this, swipeAction, swipeLeftAction, swipeRightAction)
+                swipeEnabled = spaceSwipeEnabledFor(swipeAction, hasHorizontalSwipe)
                 swipeRepeatEnabled = true
-                applySpaceSwipeThresholds(this)
+                applySpaceSwipeThresholds(this, hasHorizontalSwipe)
                 // Track the locked swipe direction to avoid conflicting gestures
                 var swipeDirectionLocked: SwipeAxis? = null
                 onGestureListener = OnGestureListener { view, event ->
@@ -1841,16 +1872,26 @@ abstract class BaseKeyboard(
                             onAction(KeyAction.VoiceInputHoldEnd)
                             // 划动模式：抬手时按总位移方向触发用户配置的动作，语义与其它
                             // 键的 Behavior.Swipe 一致（一次划动只触发一次）。光标模式不触发。
-                            if (
-                                !cursorMode &&
-                                swipeAction != null &&
-                                !event.consumed &&
-                                shouldTriggerSymbolBySwipe(view, event.totalY)
-                            ) {
-                                onAction(swipeAction)
-                                true
-                            } else {
+                            if (cursorMode || event.consumed) {
                                 false
+                            } else {
+                                val horizontal = kotlin.math.abs(event.totalX) >
+                                    kotlin.math.abs(event.totalY)
+                                val horizontalAction = if (horizontal && event.totalX != 0) {
+                                    if (event.totalX < 0) swipeLeftAction else swipeRightAction
+                                } else null
+                                when {
+                                    horizontalAction != null -> {
+                                        onAction(horizontalAction)
+                                        true
+                                    }
+                                    swipeAction != null &&
+                                        shouldTriggerSymbolBySwipe(view, event.totalY) -> {
+                                        onAction(swipeAction)
+                                        true
+                                    }
+                                    else -> false
+                                }
                             }
                         }
                         else -> false
@@ -1884,9 +1925,18 @@ abstract class BaseKeyboard(
                                 }
                             }
                             if (backspaceSwipeAxis == SwipeAxis.X && countX != 0) {
-                                onAction(KeyAction.MoveSelectionAction(countX))
-                                if (hapticOnRepeat) InputFeedbacks.hapticFeedback(view)
-                                true
+                                // 横向划过配置了动作的方向时不移动光标：抬手时要按
+                                // 总位移触发该动作，边移光标边触发会让两种结果叠加。
+                                val hasHorizontalAction =
+                                    if (countX < 0) def.swipeLeft != null
+                                    else def.swipeRight != null
+                                if (hasHorizontalAction) {
+                                    false
+                                } else {
+                                    onAction(KeyAction.MoveSelectionAction(countX))
+                                    if (hapticOnRepeat) InputFeedbacks.hapticFeedback(view)
+                                    true
+                                }
                             } else false
                         }
                         GestureType.Up -> {
@@ -1901,6 +1951,11 @@ abstract class BaseKeyboard(
                                 kotlin.math.abs(event.totalY) > kotlin.math.abs(event.totalX)
                             ) SwipeAxis.Y else SwipeAxis.X
                             backspaceSwipeAxis = null
+                            val horizontal = kotlin.math.abs(event.totalX) >
+                                kotlin.math.abs(event.totalY)
+                            val horizontalAction = if (horizontal && event.totalX != 0) {
+                                if (event.totalX < 0) def.swipeLeft else def.swipeRight
+                            } else null
                             val swipeAction = selectSwipeAction(
                                 view,
                                 event.totalY,
@@ -1911,7 +1966,10 @@ abstract class BaseKeyboard(
                                     overrideDefaults = true
                                 )
                             )
-                            if (
+                            if (horizontalAction != null) {
+                                onAction(horizontalAction)
+                                true
+                            } else if (
                                 swipeAxis == SwipeAxis.Y &&
                                 kotlin.math.abs(event.totalY) > kotlin.math.abs(event.totalX) &&
                                 swipeAction != null
@@ -2168,10 +2226,10 @@ abstract class BaseKeyboard(
         val newView = createKeyView(def, registerComposeAware = false, appearanceOverride = appearance)
         // 副标签偏移属于基础键的布局位置，不随合成态覆盖键变化；重建视图时用基础键的值
         // 覆盖 createKeyView 从 def（此刻可能是 composeOverride）读到的偏移。
-        newView.altLabelOffsetX = item.baseDef.swipeUpLabelOffsetX
-        newView.altLabelOffsetY = item.baseDef.swipeUpLabelOffsetY
-        newView.altLabel1OffsetX = item.baseDef.swipeDownLabelOffsetX
-        newView.altLabel1OffsetY = item.baseDef.swipeDownLabelOffsetY
+        newView.altLabelOffsetX = item.baseDef.swipeUpLabelOffsetX + item.baseDef.rowSwipeUpLabelOffsetX
+        newView.altLabelOffsetY = item.baseDef.swipeUpLabelOffsetY + item.baseDef.rowSwipeUpLabelOffsetY
+        newView.altLabel1OffsetX = item.baseDef.swipeDownLabelOffsetX + item.baseDef.rowSwipeDownLabelOffsetX
+        newView.altLabel1OffsetY = item.baseDef.swipeDownLabelOffsetY + item.baseDef.rowSwipeDownLabelOffsetY
         // createKeyView 已按传入的 activeDef 完成一次布局；覆盖偏移后必须重新应用，
         // 否则合成态重建时（activeDef 为 composeOverride）偏移会停在被覆盖前的值。
         when (newView) {
@@ -2633,18 +2691,34 @@ abstract class BaseKeyboard(
                 }
                 is KeyDef.Behavior.Swipe -> {
                     view.swipeEnabled = true
-                    view.swipeThresholdX = disabledSwipeThreshold
+                    // 配了左/右滑动作时横向也要攒格，否则 totalX 永远是 0；否则保持
+                    // 「横向禁用」，避免与其它横向手势（如弹窗聚焦）打架。
+                    view.swipeThresholdX =
+                        if (it.leftMacro != null || it.rightMacro != null) inputSwipeThreshold
+                        else disabledSwipeThreshold
                     view.swipeThresholdY = inputSwipeThreshold
                     val oldOnGestureListener = view.onGestureListener ?: OnGestureListener.Empty
                     view.onGestureListener = OnGestureListener { currentView, event ->
                         when (event.type) {
                             GestureType.Up -> {
-                                val action = selectSwipeAction(currentView, event.totalY, it)
-                                if (!event.consumed && action != null) {
-                                    onAction(action)
-                                    true
+                                val horizontal = kotlin.math.abs(event.totalX) >
+                                    kotlin.math.abs(event.totalY)
+                                val horizontalAction = if (horizontal && event.totalX != 0) {
+                                    if (event.totalX < 0) it.leftMacro else it.rightMacro
+                                } else null
+                                if (horizontalAction != null) {
+                                    if (!event.consumed) {
+                                        onAction(horizontalAction)
+                                        true
+                                    } else false
                                 } else {
-                                    false
+                                    val action = selectSwipeAction(currentView, event.totalY, it)
+                                    if (!event.consumed && action != null) {
+                                        onAction(action)
+                                        true
+                                    } else {
+                                        false
+                                    }
                                 }
                             }
                             else -> false

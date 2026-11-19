@@ -210,6 +210,10 @@ class KeyEditorForm(
     private var nonMacroSwipeUpStepsData: List<Any> = emptyList()
     private var nonMacroSwipeDownStepsData: List<Any> = emptyList()
     private var nonMacroSwipeStepsData: List<Any> = emptyList()
+    // 左/右滑动作不区分「宏键」与普通键：同一时间只有一个键型分支可见，
+    // 用一组共享状态即可，保存时按当前键型统一写入 swipeLeft/swipeRight。
+    private var horizontalSwipeLeftStepsData: List<Any> = emptyList()
+    private var horizontalSwipeRightStepsData: List<Any> = emptyList()
     private var macroEditCallback: ((List<Any>) -> Unit)? = null
 
     /**
@@ -439,6 +443,8 @@ class KeyEditorForm(
         nonMacroSwipeStepsData = emptyList()
         nonMacroSwipeUpStepsData = emptyList()
         nonMacroSwipeDownStepsData = emptyList()
+        horizontalSwipeLeftStepsData = emptyList()
+        horizontalSwipeRightStepsData = emptyList()
         macroSwipeUpStepsData = emptyList()
         macroSwipeDownStepsData = emptyList()
 
@@ -581,6 +587,7 @@ class KeyEditorForm(
                         }
                     }
                 ).forEach { fieldsContainer.addView(it) }
+                addHorizontalSwipeMacroEditors(keyData)
             }
 
             "SymbolKey" -> {
@@ -634,6 +641,7 @@ class KeyEditorForm(
                         }
                     }
                 ).forEach { fieldsContainer.addView(it) }
+                addHorizontalSwipeMacroEditors(keyData)
             }
 
             "MacroKey" -> {
@@ -758,6 +766,7 @@ class KeyEditorForm(
                         }
                     }
                 ).forEach { fieldsContainer.addView(it) }
+                addHorizontalSwipeMacroEditors(keyData)
             }
 
             "CapsKey", "ReturnKey", "BackspaceKey" -> {
@@ -805,6 +814,7 @@ class KeyEditorForm(
                         }
                     }
                 ).forEach { fieldsContainer.addView(it) }
+                addHorizontalSwipeMacroEditors(keyData)
             }
 
             "CommaKey", "LanguageKey" -> {
@@ -879,6 +889,7 @@ class KeyEditorForm(
                         }
                     }
                 ).forEach { fieldsContainer.addView(it) }
+                addHorizontalSwipeMacroEditors(keyData)
             }
 
             "NumPadKey" -> {
@@ -1179,6 +1190,8 @@ class KeyEditorForm(
         macroSwipeDownStepsData = macroSwipeDownSteps
         macroLongPressStepsData = macroStepsOf(keyData["longPress"])
         nonMacroSwipeStepsData = macroStepsOf(keyData["swipe"])
+        horizontalSwipeLeftStepsData = macroStepsOf(keyData["swipeLeft"])
+        horizontalSwipeRightStepsData = macroStepsOf(keyData["swipeRight"])
         val (nonMacroSwipeUpSteps, nonMacroSwipeDownSteps) = directionalSwipeStepsOf(keyData)
         nonMacroSwipeUpStepsData = nonMacroSwipeUpSteps
         nonMacroSwipeDownStepsData = nonMacroSwipeDownSteps
@@ -1228,6 +1241,63 @@ class KeyEditorForm(
         else draft.remove("swipeUp")
         if (downSteps.isNotEmpty()) draft["swipeDown"] = mapOf("macro" to downSteps)
         else draft.remove("swipeDown")
+    }
+
+    /**
+     * 左/右滑动作。与上/下滑不同，它们没有对应的键面标签槽位，因此只写宏字段。
+     */
+    private fun addHorizontalSwipeMacroEditors(keyData: Map<String, Any?>) {
+        horizontalSwipeLeftStepsData = macroStepsOf(keyData["swipeLeft"])
+        horizontalSwipeRightStepsData = macroStepsOf(keyData["swipeRight"])
+        createMacroEditorButton(
+            title = getString(R.string.text_keyboard_layout_macro_swipe_left_event),
+            previewText = buildMacroPreview(horizontalSwipeLeftStepsData),
+            onClick = {
+                openMacroEditor(
+                    horizontalSwipeLeftStepsData,
+                    getString(R.string.text_keyboard_layout_macro_swipe_left_event),
+                    SLOT_SWIPE_LEFT
+                ) { newSteps ->
+                    val draft = buildDraftKeyData()
+                    horizontalSwipeLeftStepsData = newSteps
+                    applyHorizontalSwipeDraft(draft)
+                    keyData = draft
+                    rebuildFields()
+                    updateActionButtonState()
+                }
+            }
+        ).forEach { fieldsContainer.addView(it) }
+        createMacroEditorButton(
+            title = getString(R.string.text_keyboard_layout_macro_swipe_right_event),
+            previewText = buildMacroPreview(horizontalSwipeRightStepsData),
+            onClick = {
+                openMacroEditor(
+                    horizontalSwipeRightStepsData,
+                    getString(R.string.text_keyboard_layout_macro_swipe_right_event),
+                    SLOT_SWIPE_RIGHT
+                ) { newSteps ->
+                    val draft = buildDraftKeyData()
+                    horizontalSwipeRightStepsData = newSteps
+                    applyHorizontalSwipeDraft(draft)
+                    keyData = draft
+                    rebuildFields()
+                    updateActionButtonState()
+                }
+            }
+        ).forEach { fieldsContainer.addView(it) }
+    }
+
+    private fun applyHorizontalSwipeDraft(draft: MutableMap<String, Any?>) {
+        if (horizontalSwipeLeftStepsData.isNotEmpty()) {
+            draft["swipeLeft"] = mapOf("macro" to horizontalSwipeLeftStepsData)
+        } else {
+            draft.remove("swipeLeft")
+        }
+        if (horizontalSwipeRightStepsData.isNotEmpty()) {
+            draft["swipeRight"] = mapOf("macro" to horizontalSwipeRightStepsData)
+        } else {
+            draft.remove("swipeRight")
+        }
     }
 
     private fun addDirectionalSwipeLabelEditors(keyData: Map<String, Any?>) {
@@ -1849,8 +1919,12 @@ class KeyEditorForm(
         }
         if (!composeOverrideEditorMode) {
             appendAltLabelOffsets(draft)
+            if (selectedType in HORIZONTAL_SWIPE_TYPES) applyHorizontalSwipeDraft(draft)
             // Row height stays in row settings; the split boundary can also be edited on this key.
             keyData["rowHeightPercent"]?.let { draft["rowHeightPercent"] = it }
+            ROW_SWIPE_OFFSET_FIELDS.forEach { field ->
+                keyData[field]?.let { draft[field] = it }
+            }
             if (splitAfterCheckBox?.isChecked == true) draft["splitAfter"] = true
         }
         composeOverrideData?.let { draft["composeOverride"] = toSerializableMap(it) }
@@ -1995,6 +2069,14 @@ class KeyEditorForm(
                         nonMacroSwipeDownStepsData
                     )
                 }
+            }
+            SLOT_SWIPE_LEFT -> {
+                horizontalSwipeLeftStepsData = steps
+                applyHorizontalSwipeDraft(draft)
+            }
+            SLOT_SWIPE_RIGHT -> {
+                horizontalSwipeRightStepsData = steps
+                applyHorizontalSwipeDraft(draft)
             }
             SLOT_SWIPE -> {
                 nonMacroSwipeStepsData = steps
@@ -2377,8 +2459,12 @@ class KeyEditorForm(
         }
         if (!composeOverrideEditorMode) {
             appendAltLabelOffsets(newKey)
+            if (selectedType in HORIZONTAL_SWIPE_TYPES) applyHorizontalSwipeDraft(newKey)
             // Row height stays in row settings; the split boundary can also be edited on this key.
             keyData["rowHeightPercent"]?.let { newKey["rowHeightPercent"] = it }
+            ROW_SWIPE_OFFSET_FIELDS.forEach { field ->
+                keyData[field]?.let { newKey[field] = it }
+            }
             if (splitAfterCheckBox?.isChecked == true) newKey["splitAfter"] = true
         }
         composeOverrideData?.let { newKey["composeOverride"] = toSerializableMap(it) }
@@ -2468,8 +2554,21 @@ class KeyEditorForm(
         private const val SLOT_TAP = "tap"
         private const val SLOT_SWIPE_UP = "swipeUp"
         private const val SLOT_SWIPE_DOWN = "swipeDown"
+        private const val SLOT_SWIPE_LEFT = "swipeLeft"
+        private const val SLOT_SWIPE_RIGHT = "swipeRight"
         private const val SLOT_SWIPE = "swipe"
         private const val SLOT_LONG_PRESS = "longPress"
+
+        private val HORIZONTAL_SWIPE_TYPES = setOf(
+            "LayoutSwitchKey", "SymbolKey", "MacroKey",
+            "CapsKey", "ReturnKey", "BackspaceKey", "SpaceKey"
+        )
+
+        /** 行设置写入的行级副标签偏移，编辑单个键时必须原样带回。 */
+        private val ROW_SWIPE_OFFSET_FIELDS = listOf(
+            "rowSwipeUpLabelOffsetX", "rowSwipeUpLabelOffsetY",
+            "rowSwipeDownLabelOffsetX", "rowSwipeDownLabelOffsetY"
+        )
 
         @Suppress("DEPRECATION")
         private inline fun <reified T : Serializable> serializableBundleCompat(

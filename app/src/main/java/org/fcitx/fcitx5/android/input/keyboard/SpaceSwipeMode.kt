@@ -22,5 +22,6 @@ package org.fcitx.fcitx5.android.input.keyboard
  */
 internal fun resolveSpaceSwipeEnabled(
     cursorSwipeEnabled: Boolean,
-    swipeAction: MacroAction?
-): Boolean = cursorSwipeEnabled || swipeAction != null
+    swipeAction: MacroAction?,
+    hasHorizontalSwipe: Boolean = false
+): Boolean = cursorSwipeEnabled || swipeAction != null || hasHorizontalSwipe

@@ -41,6 +41,8 @@ class SymbolKey(
     val swipeLabel: String? = null,
     val swipeUp: MacroAction? = null,
     val swipeDown: MacroAction? = null,
+    val swipeLeft: MacroAction? = null,
+    val swipeRight: MacroAction? = null,
     val swipeUpLabel: String? = null,
     val swipeDownLabel: String? = null
 ) : KeyDef(
@@ -80,10 +82,12 @@ class SymbolKey(
         // In the base SymbolKey state, `symbol` is only the keycap text. Send
         // the standard period so input methods can apply their punctuation rules.
         add(Behavior.Press(KeyAction.FcitxKeyAction(DEFAULT_PERIOD_KEY)))
-        if (swipeUp != null || swipeDown != null) {
+        if (swipeUp != null || swipeDown != null || swipeLeft != null || swipeRight != null) {
             add(Behavior.Swipe(
                 upMacro = swipeUp,
                 downMacro = swipeDown,
+                leftMacro = swipeLeft,
+                rightMacro = swipeRight,
                 legacyMacro = swipe,
                 overrideDefaults = true
             ))
@@ -170,6 +174,8 @@ class CapsKey(
     val swipeLabel: String? = null,
     val swipeUp: MacroAction? = null,
     val swipeDown: MacroAction? = null,
+    val swipeLeft: MacroAction? = null,
+    val swipeRight: MacroAction? = null,
     val swipeUpLabel: String? = null,
     val swipeDownLabel: String? = null
 ) : KeyDef(
@@ -208,10 +214,12 @@ class CapsKey(
         add(Behavior.Press(KeyAction.CapsAction(false)))
         add(Behavior.LongPress(KeyAction.CapsAction(true)))
         add(Behavior.DoubleTap(KeyAction.CapsAction(true)))
-        if (swipeUp != null || swipeDown != null) {
+        if (swipeUp != null || swipeDown != null || swipeLeft != null || swipeRight != null) {
             add(Behavior.Swipe(
                 upMacro = swipeUp,
                 downMacro = swipeDown,
+                leftMacro = swipeLeft,
+                rightMacro = swipeRight,
                 legacyMacro = swipe,
                 overrideDefaults = true
             ))
@@ -237,6 +245,8 @@ class LayoutSwitchKey(
     val swipeLabel: String? = null,
     val swipeUp: MacroAction? = null,
     val swipeDown: MacroAction? = null,
+    val swipeLeft: MacroAction? = null,
+    val swipeRight: MacroAction? = null,
     val swipeUpLabel: String? = null,
     val swipeDownLabel: String? = null
 ) : KeyDef(
@@ -280,10 +290,12 @@ class LayoutSwitchKey(
     },
     buildSet {
         add(Behavior.Press(KeyAction.LayoutSwitchAction(to)))
-        if (swipeUp != null || swipeDown != null) {
+        if (swipeUp != null || swipeDown != null || swipeLeft != null || swipeRight != null) {
             add(Behavior.Swipe(
                 upMacro = swipeUp,
                 downMacro = swipeDown,
+                leftMacro = swipeLeft,
+                rightMacro = swipeRight,
                 legacyMacro = swipe,
                 overrideDefaults = true
             ))
@@ -325,6 +337,8 @@ class BackspaceKey(
     val swipeLabel: String? = null,
     val swipeUp: MacroAction? = null,
     val swipeDown: MacroAction? = null,
+    val swipeLeft: MacroAction? = null,
+    val swipeRight: MacroAction? = null,
     val swipeUpLabel: String? = null,
     val swipeDownLabel: String? = null
 ) : KeyDef(
@@ -479,6 +493,8 @@ class SpaceKey(
     shadowColor: Int? = null,
     shadowColorMonet: String? = null,
     val swipe: MacroAction? = null,
+    val swipeLeft: MacroAction? = null,
+    val swipeRight: MacroAction? = null,
     val swipeLabel: String? = null,
     val label: String? = null
 ) : KeyDef(
@@ -532,6 +548,8 @@ class ReturnKey(
     val swipeLabel: String? = null,
     val swipeUp: MacroAction? = null,
     val swipeDown: MacroAction? = null,
+    val swipeLeft: MacroAction? = null,
+    val swipeRight: MacroAction? = null,
     val swipeUpLabel: String? = null,
     val swipeDownLabel: String? = null
 ) : KeyDef(
@@ -572,10 +590,12 @@ class ReturnKey(
     },
     buildSet {
         add(Behavior.Press(KeyAction.SymAction(KeySym(FcitxKeyMapping.FcitxKey_Return))))
-        if (swipeUp != null || swipeDown != null) {
+        if (swipeUp != null || swipeDown != null || swipeLeft != null || swipeRight != null) {
             add(Behavior.Swipe(
                 upMacro = swipeUp,
                 downMacro = swipeDown,
+                leftMacro = swipeLeft,
+                rightMacro = swipeRight,
                 legacyMacro = swipe,
                 overrideDefaults = true
             ))
@@ -769,6 +789,8 @@ class MacroKey(
     val tap: MacroAction,
     val swipeUp: MacroAction? = null,
     val swipeDown: MacroAction? = null,
+    val swipeLeft: MacroAction? = null,
+    val swipeRight: MacroAction? = null,
     val swipe: MacroAction? = null,
     val longPress: MacroAction? = null,
     percentWidth: Float = 0.1f,
@@ -803,7 +825,7 @@ class MacroKey(
         ).apply {
             directionalSwipeLabels = swipeUpLabel != null || swipeDownLabel != null
         },
-    buildBehaviors(tap, swipeUp, swipeDown, swipe, longPress),
+    buildBehaviors(tap, swipeUp, swipeDown, swipeLeft, swipeRight, swipe, longPress),
     // Popup 候选沿用「实际显示的文本」：显式 displayText 优先，未设置时回落到标签文本，
     // 与改动前（label 即显示文本）的候选列表保持一致。
     buildPopup(popup, tap, displayText?.takeIf { it.isNotEmpty() } ?: label, longPress, longPressLabel)
@@ -876,6 +898,8 @@ class MacroKey(
             tap: MacroAction,
             swipeUp: MacroAction?,
             swipeDown: MacroAction?,
+            swipeLeft: MacroAction?,
+            swipeRight: MacroAction?,
             swipe: MacroAction?,
             longPress: MacroAction?
         ): Set<Behavior> {
@@ -885,14 +909,21 @@ class MacroKey(
                 }
                 val executableUp = swipeUp?.takeIf { it.hasExecutableStep() }
                 val executableDown = swipeDown?.takeIf { it.hasExecutableStep() }
+                val executableLeft = swipeLeft?.takeIf { it.hasExecutableStep() }
+                val executableRight = swipeRight?.takeIf { it.hasExecutableStep() }
                 val executableLegacy = swipe?.takeIf { it.hasExecutableStep() }
-                if (executableUp != null || executableDown != null || executableLegacy != null) {
+                if (executableUp != null || executableDown != null ||
+                    executableLeft != null || executableRight != null || executableLegacy != null
+                ) {
                     add(
                         Behavior.Swipe(
                             upMacro = executableUp,
                             downMacro = executableDown,
+                            leftMacro = executableLeft,
+                            rightMacro = executableRight,
                             legacyMacro = executableLegacy,
-                            overrideDefaults = executableUp != null || executableDown != null
+                            overrideDefaults = executableUp != null || executableDown != null ||
+                                executableLeft != null || executableRight != null
                         )
                     )
                 }

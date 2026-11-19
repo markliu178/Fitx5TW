@@ -2492,6 +2492,46 @@ class TextKeyboardLayoutEditorActivity : SettingsUiActivity() {
             textSize = 13f
             setTextColor(settingsColor(android.R.attr.textColorSecondary))
         })
+
+        form.addView(TextView(this).apply {
+            setText(R.string.text_keyboard_layout_row_alt_offset_title)
+            setPadding(0, dp(16), 0, 0)
+        })
+        fun existingOffset(field: String): String = row.asSequence()
+            .mapNotNull { key ->
+                when (val raw = key[field]) {
+                    is Number -> raw.toInt()
+                    is String -> raw.trim().toIntOrNull()
+                    else -> null
+                }
+            }
+            .firstOrNull()
+            ?.takeIf { it != 0 }
+            ?.toString()
+            .orEmpty()
+        fun offsetField(labelRes: Int, field: String): EditText = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_SIGNED
+            minHeight = dp(48)
+            setSingleLine()
+            hint = getString(labelRes)
+            setText(existingOffset(field))
+            isEnabled = row.isNotEmpty()
+            addTextChangedListener(object : android.text.TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                override fun afterTextChanged(s: android.text.Editable?) {
+                    error = null
+                }
+            })
+        }
+        val rowOffsetEdits = listOf(
+            "rowSwipeUpLabelOffsetX" to offsetField(R.string.text_keyboard_layout_row_alt_up_offset_x, "rowSwipeUpLabelOffsetX"),
+            "rowSwipeUpLabelOffsetY" to offsetField(R.string.text_keyboard_layout_row_alt_up_offset_y, "rowSwipeUpLabelOffsetY"),
+            "rowSwipeDownLabelOffsetX" to offsetField(R.string.text_keyboard_layout_row_alt_down_offset_x, "rowSwipeDownLabelOffsetX"),
+            "rowSwipeDownLabelOffsetY" to offsetField(R.string.text_keyboard_layout_row_alt_down_offset_y, "rowSwipeDownLabelOffsetY")
+        )
+        rowOffsetEdits.forEach { (_, edit) -> form.addView(edit) }
+
         val keepSplitRowTogether = com.google.android.material.checkbox.MaterialCheckBox(this).apply {
             text = getString(R.string.layout_editor_split_row_keep_together)
             isChecked = LayoutKeyOperations.isSplitRowDisabled(row)
@@ -2550,9 +2590,23 @@ class TextKeyboardLayoutEditorActivity : SettingsUiActivity() {
                     height.error = getString(R.string.layout_editor_height_invalid)
                     return@setOnClickListener
                 }
+                val offsets = mutableMapOf<String, Int>()
+                rowOffsetEdits.forEach { (field, edit) ->
+                    val text = edit.text.toString().trim()
+                    val parsed = if (text.isEmpty()) 0 else text.toIntOrNull()
+                    if (parsed == null) {
+                        edit.error = getString(R.string.layout_editor_offset_invalid)
+                        return@setOnClickListener
+                    }
+                    offsets[field] = parsed
+                }
                 row.forEach { key ->
                     key.remove("rowHeightPercent")
                     if (value != null) key["rowHeightPercent"] = value
+                    offsets.forEach { (field, offset) ->
+                        key.remove(field)
+                        if (offset != 0) key[field] = offset
+                    }
                 }
                 if (editingSplit) {
                     LayoutKeyOperations.setSplitRowDisabled(row, keepSplitRowTogether.isChecked)
@@ -2635,6 +2689,10 @@ class TextKeyboardLayoutEditorActivity : SettingsUiActivity() {
     }
 
     private fun normalizeRowHeightPercent(row: MutableList<MutableMap<String, Any?>>) {
+        val rowOffsetFields = listOf(
+            "rowSwipeUpLabelOffsetX", "rowSwipeUpLabelOffsetY",
+            "rowSwipeDownLabelOffsetX", "rowSwipeDownLabelOffsetY"
+        )
         row.forEach { key ->
             val parsed = when (val raw = key["rowHeightPercent"]) {
                 is Number -> raw.toFloat()
@@ -2646,6 +2704,16 @@ class TextKeyboardLayoutEditorActivity : SettingsUiActivity() {
                 key.remove("rowHeightPercent")
             } else {
                 key["rowHeightPercent"] = parsed
+            }
+
+            rowOffsetFields.forEach { field ->
+                val offset = when (val raw = key[field]) {
+                    is Number -> raw.toInt()
+                    is String -> raw.trim().toIntOrNull()
+                    else -> null
+                }
+                key.remove(field)
+                if (offset != null && offset != 0) key[field] = offset
             }
         }
     }

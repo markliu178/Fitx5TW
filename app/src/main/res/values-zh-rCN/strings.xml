@@ -775,6 +775,8 @@
     <string name="text_keyboard_layout_macro_swipe_event">划动事件</string>
     <string name="text_keyboard_layout_macro_swipe_up_event">上划事件</string>
     <string name="text_keyboard_layout_macro_swipe_down_event">下划事件</string>
+    <string name="text_keyboard_layout_macro_swipe_left_event">左划事件</string>
+    <string name="text_keyboard_layout_macro_swipe_right_event">右划事件</string>
     <string name="text_keyboard_layout_macro_longpress_event">长按事件</string>
     <string name="text_keyboard_layout_longpress_label">长按标签</string>
     <string name="text_keyboard_layout_longpress_label_fallback_hint">留空则在弹出菜单中使用“标签”</string>
@@ -790,6 +792,12 @@
     <string name="text_keyboard_layout_alt_up_offset_y">上标垂直偏移</string>
     <string name="text_keyboard_layout_alt_down_offset_x">下标水平偏移</string>
     <string name="text_keyboard_layout_alt_down_offset_y">下标垂直偏移</string>
+    <string name="text_keyboard_layout_row_alt_offset_title">整行副标签偏移（dp）；正数向右/向下，最终位置为行偏移加单键偏移，0 为默认。</string>
+    <string name="text_keyboard_layout_row_alt_up_offset_x">整行上标水平偏移</string>
+    <string name="text_keyboard_layout_row_alt_up_offset_y">整行上标垂直偏移</string>
+    <string name="text_keyboard_layout_row_alt_down_offset_x">整行下标水平偏移</string>
+    <string name="text_keyboard_layout_row_alt_down_offset_y">整行下标垂直偏移</string>
+    <string name="layout_editor_offset_invalid">请输入整数</string>
     <string name="text_keyboard_layout_space_label">空格键标签</string>
     <string name="text_keyboard_layout_space_label_hint">留空时自动显示当前方案名（或中英状态）。</string>
     <string name="text_keyboard_layout_space_swipe_hint">仅在关闭「划动空格键以移动光标」后生效；开启时划动空格键用于移动光标。</string>

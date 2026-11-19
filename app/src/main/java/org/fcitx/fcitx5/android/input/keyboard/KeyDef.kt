@@ -59,6 +59,18 @@ open class KeyDef(
     var swipeDownLabelOffsetY: Int = 0
 
     /**
+     * 整行副标签偏移（dp），由「行设置」写入行内每个键。
+     *
+     * 最终位置 = 本键的 [swipeUpLabelOffsetX] 等 + 这里的行级值，见
+     * [org.fcitx.fcitx5.android.input.keyboard.BaseKeyboard.createKeyView]。
+     * 与 [rowHeightPercent] 一样，行参数复制在行内每个键上，行本身没有独立对象。
+     */
+    var rowSwipeUpLabelOffsetX: Int = 0
+    var rowSwipeUpLabelOffsetY: Int = 0
+    var rowSwipeDownLabelOffsetX: Int = 0
+    var rowSwipeDownLabelOffsetY: Int = 0
+
+    /**
      * Optional key definition that is used while IME is in composing state.
      * This must keep the same key type/size semantics as the base key.
      */
@@ -377,6 +389,10 @@ open class KeyDef(
             val upMacro: KeyAction? = null,
             /** Explicit physical down-swipe macro. */
             val downMacro: KeyAction? = null,
+            /** Explicit physical left-swipe macro. */
+            val leftMacro: KeyAction? = null,
+            /** Explicit physical right-swipe macro. */
+            val rightMacro: KeyAction? = null,
             /** Legacy single swipe macro kept for unmigrated layouts. */
             val legacyMacro: KeyAction? = null,
             /** Function-key direction macros ignore the global swipe direction preference. */
