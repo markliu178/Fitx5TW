@@ -464,17 +464,23 @@ class InputView(
 
     private val placeholderOnClickListener = OnClickListener { }
 
-    // use clickable view as padding, so MotionEvent can be split to padding view and keyboard view
+    // use clickable view as padding, so MotionEvent can be split to padding view and keyboard view.
+    // They have no stateful background, so if they ever take focus the framework paints a default
+    // focus highlight (?attr/selectableItemBackground) over their rect — a grey band at the
+    // keyboard edges / bottom. Keep them clickable (for event splitting) but non-focusable.
     private val leftPaddingSpace = view(::View) {
         setOnClickListener(placeholderOnClickListener)
+        isFocusable = false
     }
     private val rightPaddingSpace = view(::View) {
         setOnClickListener(placeholderOnClickListener)
+        isFocusable = false
     }
     private val bottomPaddingSpace = view(::View) {
         // height as keyboardBottomPadding
         // bottomMargin as WindowInsets (Navigation Bar) offset
         setOnClickListener(placeholderOnClickListener)
+        isFocusable = false
     }
 
     private fun createHandleDrawable(radius: Float = dp(5).toFloat()) = GradientDrawable().apply {
@@ -2485,7 +2491,10 @@ class InputView(
             adjustingOverlay.visibility = GONE
             keyboardView.isEnabled = true
             keyboardView.isClickable = true
-            keyboardView.isFocusable = true
+            // keyboardView has no stateful background (its background is the child customBackground).
+            // If it is focusable and takes focus while not in touch mode, the framework paints a
+            // default focus highlight over its whole bounds, greying out the entire keyboard.
+            keyboardView.isFocusable = false
         }
         // Bring floating move handle to front to ensure it's visible above overlay when in adjusting mode
         if (isAdjustingMode) {
