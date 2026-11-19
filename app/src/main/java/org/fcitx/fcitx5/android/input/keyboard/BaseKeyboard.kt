@@ -2172,6 +2172,12 @@ abstract class BaseKeyboard(
         newView.altLabelOffsetY = item.baseDef.swipeUpLabelOffsetY
         newView.altLabel1OffsetX = item.baseDef.swipeDownLabelOffsetX
         newView.altLabel1OffsetY = item.baseDef.swipeDownLabelOffsetY
+        // createKeyView 已按传入的 activeDef 完成一次布局；覆盖偏移后必须重新应用，
+        // 否则合成态重建时（activeDef 为 composeOverride）偏移会停在被覆盖前的值。
+        when (newView) {
+            is AltTextKeyView -> newView.refreshAltTextLayout()
+            is ImageAltTextKeyView -> newView.refreshAltTextLayout()
+        }
         applyConfiguredFonts(newView)
         // Keep the same identity so sibling constraints (leftToRight/rightToLeft) remain valid.
         newView.id = oldView.id
