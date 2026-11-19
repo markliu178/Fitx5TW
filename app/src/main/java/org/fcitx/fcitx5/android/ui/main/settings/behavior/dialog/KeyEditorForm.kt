@@ -1246,9 +1246,9 @@ class KeyEditorForm(
     /**
      * 左/右滑动作。与上/下滑不同，它们没有对应的键面标签槽位，因此只写宏字段。
      */
-    private fun addHorizontalSwipeMacroEditors(keyData: Map<String, Any?>) {
-        horizontalSwipeLeftStepsData = macroStepsOf(keyData["swipeLeft"])
-        horizontalSwipeRightStepsData = macroStepsOf(keyData["swipeRight"])
+    private fun addHorizontalSwipeMacroEditors(sourceKeyData: Map<String, Any?>) {
+        horizontalSwipeLeftStepsData = macroStepsOf(sourceKeyData["swipeLeft"])
+        horizontalSwipeRightStepsData = macroStepsOf(sourceKeyData["swipeRight"])
         createMacroEditorButton(
             title = getString(R.string.text_keyboard_layout_macro_swipe_left_event),
             previewText = buildMacroPreview(horizontalSwipeLeftStepsData),
