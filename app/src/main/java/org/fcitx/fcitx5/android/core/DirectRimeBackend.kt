@@ -209,13 +209,20 @@ class DirectRimeBackend(context: Context) : InputEngine {
                 startupStage("assets") { DataManager.sync() }
                 startupStage("config") { config.load() }
                 startupStage("engine-selection") { engineOperations.configureSelectedEngine() }
-                startupStage("native") { Native.start(shared.absolutePath, config.user.absolutePath, BuildConfig.VERSION_NAME,
-                    fullCheck = engineOperations.newActivation || WanxiangAdvancedFiles.needsDeploymentRepair(config.user),
-                    minLogLevel = DirectRimeEngineLog.minLevel()) }
-                started = true
-                startupError = ""
-                refreshSchemas()
-                engineOperations.startupSucceeded()
+                val activeUser = config.user
+                if (activeUser == null) {
+                    started = false
+                    startupError = "未配置任何 Rime 方案，请在数据目录管理中新建或导入"
+                    showUnavailable(startupError)
+                } else {
+                    startupStage("native") { Native.start(shared.absolutePath, activeUser.absolutePath, BuildConfig.VERSION_NAME,
+                        fullCheck = engineOperations.newActivation || WanxiangAdvancedFiles.needsDeploymentRepair(activeUser),
+                        minLogLevel = DirectRimeEngineLog.minLevel()) }
+                    started = true
+                    startupError = ""
+                    refreshSchemas()
+                    engineOperations.startupSucceeded()
+                }
             } catch (e: Exception) {
                 engineOperations.startupFailed(e)
                 startupError = e.message ?: "引擎启动失败"
@@ -695,8 +702,12 @@ class DirectRimeBackend(context: Context) : InputEngine {
             return onOwner {
                 org.fcitx.fcitx5.android.daemon.FcitxDaemon.requireUserDataAvailable()
                 require(WanxiangAdvancedFiles.source(file))
-                config.requireUpdateTarget(config.current, config.user.canonicalPath)
-                val snapshot = kotlinx.serialization.json.Json.encodeToString(WanxiangAdvancedFiles.snapshot(config.user, file, shared))
+                val profileName = config.current
+                    ?: error("当前没有可用的 Rime 方案目录")
+                val userDir = config.user
+                    ?: error("当前没有可用的 Rime 方案目录")
+                config.requireUpdateTarget(profileName, userDir.canonicalPath)
+                val snapshot = kotlinx.serialization.json.Json.encodeToString(WanxiangAdvancedFiles.snapshot(userDir, file, shared))
                 RawConfig(arrayOf(RawConfig("Snapshot", snapshot)))
             }
         }

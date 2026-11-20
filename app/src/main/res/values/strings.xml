@@ -811,6 +811,7 @@
     <string name="macro_editor_title">Edit %1$s</string>
     <string name="macro_editor_add_step">+ Add Step</string>
     <string name="macro_editor_step_type_tap">Tap Keys</string>
+    <string name="macro_editor_step_type_combo">Combo Keys</string>
     <string name="macro_editor_step_type_shortcut">Shortcut</string>
     <string name="macro_editor_step_type_edit">Edit Action</string>
     <string name="macro_editor_step_type_app">App Action</string>
@@ -821,6 +822,7 @@
     <string name="macro_editor_step_type_down">Press Key</string>
     <string name="macro_editor_step_type_up">Release Key</string>
     <string name="macro_editor_step_type_text">Input Text</string>
+    <string name="macro_editor_search_key_hint">Search keys…</string>
     <string name="macro_editor_action_copy">Copy</string>
     <string name="macro_editor_action_cut">Cut</string>
     <string name="macro_editor_action_paste">Paste</string>
@@ -893,9 +895,9 @@
     <string name="text_keyboard_layout_compose_override_title">Compose-state override</string>
     <string name="text_keyboard_layout_compose_override_not_configured">Use default key behavior while composing</string>
     <string name="text_keyboard_layout_compose_override_configured">Custom key behavior is configured for composing state</string>
-    <string name="text_keyboard_layout_compose_override_edit_button">Edit composing key</string>
+    <string name="text_keyboard_layout_compose_override_edit_button">Composing Key Behavior</string>
     <string name="text_keyboard_layout_compose_override_clear_button">Clear</string>
-    <string name="text_keyboard_layout_compose_override_editor_title">Edit composing key</string>
+    <string name="text_keyboard_layout_compose_override_editor_title">Composing Key Behavior</string>
     <string name="text_keyboard_layout_compose_override_follow_base_key_colors">Independent key color</string>
     <string name="text_keyboard_layout_add_submode">Add submode layout</string>
     <string name="text_keyboard_layout_add_submode_confirm">Add dedicated layout for submode "%1$s"?</string>

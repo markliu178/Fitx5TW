@@ -33,6 +33,10 @@ sealed class MacroStep {
     @Serializable @SerialName("tap")
     data class Tap(val keys: List<KeyRef>) : MacroStep()
 
+    /** Combo: press-then-release all keys together (group down, then group up). */
+    @Serializable @SerialName("combo")
+    data class Combo(val keys: List<KeyRef>) : MacroStep()
+
     @Serializable @SerialName("text")
     data class Text(val text: String) : MacroStep()
 

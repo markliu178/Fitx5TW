@@ -55,7 +55,7 @@ internal class DirectRimeProfileOperations(
                 val previous = config.current
                 try { config.switch(transaction.name); restart() }
                 catch (e: Exception) {
-                    config.switch(previous)
+                    if (previous != null && previous in config.profiles) config.switch(previous)
                     restart()
                     throw e
                 }

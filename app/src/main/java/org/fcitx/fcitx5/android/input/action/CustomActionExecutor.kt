@@ -115,6 +115,15 @@ fun executeMacroSteps(steps: List<MacroStep>, service: FcitxInputMethodService, 
                     }
                 }
             }
+            is MacroStep.Combo -> {
+                if (step.keys.isNotEmpty()) hasOsLConsumingStep = true
+                val keyCodes = step.keys.mapNotNull { k ->
+                    val kc = resolveKeyRefCode(k)
+                    if (kc != KeyEvent.KEYCODE_UNKNOWN) kc else null
+                }
+                keyCodes.forEach { service.sendSimulatedKeyEventOrFallback(it, true) }
+                keyCodes.reversed().forEach { service.sendSimulatedKeyEventOrFallback(it, false) }
+            }
             is MacroStep.Text -> {
                 if (step.text.isNotEmpty()) hasOsLConsumingStep = true
                 service.commitText(step.text)

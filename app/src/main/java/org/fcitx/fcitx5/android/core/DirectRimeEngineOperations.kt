@@ -219,8 +219,9 @@ internal class DirectRimeEngineOperations(
     }
 
     private fun startConfiguredEngine(fullCheck: Boolean) {
+        val userDir = config.user ?: error("没有可用的 Rime 方案目录")
         armExternalOperationWatchdog(EXTERNAL_START_TIMEOUT_MS)
-        Native.start(shared().absolutePath, config.user.absolutePath, versionName,
+        Native.start(shared().absolutePath, userDir.absolutePath, versionName,
             fullCheck = fullCheck, minLogLevel = DirectRimeEngineLog.minLevel())
         owner.started = true
     }
@@ -268,7 +269,8 @@ internal class DirectRimeEngineOperations(
         if (activeSelection.kind != RimeEngineKind.BUILTIN) {
             armExternalOperationWatchdog(EXTERNAL_START_TIMEOUT_MS)
         }
-        Native.start(shared().absolutePath, config.user.absolutePath, versionName, fullCheck = true,
+        val userDir = config.user ?: error("没有可用的 Rime 方案目录")
+        Native.start(shared().absolutePath, userDir.absolutePath, versionName, fullCheck = true,
             minLogLevel = DirectRimeEngineLog.minLevel())
         owner.started = true
     }

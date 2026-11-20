@@ -187,8 +187,9 @@ class MacroEditorDialogFragment : DialogFragment() {
             for (step in steps) {
                 result.add(when (step) {
                     is MacroStep.Tap -> mapOf("type" to "tap", "keys" to step.keys.map { it.toMap() })
-                    is MacroStep.Down -> mapOf("type" to "down", "keys" to step.keys.map { it.toMap() })
-                    is MacroStep.Up -> mapOf("type" to "up", "keys" to step.keys.map { it.toMap() })
+                    is MacroStep.Combo -> mapOf("type" to "combo", "keys" to step.keys.map { it.toMap() })
+                    is MacroStep.Down -> mapOf("type" to "combo", "keys" to step.keys.map { it.toMap() })
+                    is MacroStep.Up -> mapOf("type" to "combo", "keys" to step.keys.map { it.toMap() })
                     is MacroStep.Text -> mapOf("type" to "text", "text" to step.text)
                     is MacroStep.Edit -> mapOf("type" to "edit", "action" to step.action)
                     is MacroStep.AppAction -> mapOf("type" to "app", "id" to step.id)
@@ -213,8 +214,10 @@ class MacroEditorDialogFragment : DialogFragment() {
                 val m = map as Map<String, Any?>
                 when (val type = m["type"] as? String) {
                     "tap" -> MacroStep.Tap((m["keys"] as? List<Map<*,*>>).toKeyRefs())
-                    "down" -> MacroStep.Down((m["keys"] as? List<Map<*,*>>).toKeyRefs())
-                    "up" -> MacroStep.Up((m["keys"] as? List<Map<*,*>>).toKeyRefs())
+                    "combo" -> MacroStep.Combo((m["keys"] as? List<Map<*,*>>).toKeyRefs())
+                    // Legacy config auto-upgraded: down/up become combo on next save.
+                    "down" -> MacroStep.Combo((m["keys"] as? List<Map<*,*>>).toKeyRefs())
+                    "up" -> MacroStep.Combo((m["keys"] as? List<Map<*,*>>).toKeyRefs())
                     "text" -> MacroStep.Text(m["text"] as? String ?: "")
                     "edit" -> MacroStep.Edit(m["action"] as? String ?: "paste")
                     "app" -> MacroStep.AppAction(m["id"] as? String ?: "theme")
@@ -251,7 +254,7 @@ class MacroEditorDialogFragment : DialogFragment() {
             return null
         }
 
-        val STEP_TYPES = arrayOf("tap", "shortcut", "edit", "app", "layer", "down", "up", "text")
+        val STEP_TYPES = arrayOf("tap", "combo", "shortcut", "edit", "app", "layer", "text")
         val KEY_TYPES = arrayOf("fcitx", "android")
 
         /**
@@ -1252,12 +1255,11 @@ class MacroEditorDialogFragment : DialogFragment() {
                 android.R.layout.simple_spinner_item,
                 arrayOf(
                     getString(R.string.macro_editor_step_type_tap),
+                    getString(R.string.macro_editor_step_type_combo),
                     getString(R.string.macro_editor_step_type_shortcut),
                     getString(R.string.macro_editor_step_type_edit),
                     getString(R.string.macro_editor_step_type_app),
                     getString(R.string.macro_editor_step_type_layer),
-                    getString(R.string.macro_editor_step_type_down),
-                    getString(R.string.macro_editor_step_type_up),
                     getString(R.string.macro_editor_step_type_text)
                 )
             )
@@ -1756,6 +1758,38 @@ class MacroEditorDialogFragment : DialogFragment() {
 
             var highlightIndex = keysList.indexOfFirst { it.equals(draft.code, ignoreCase = true) }
                 .takeIf { it >= 0 } ?: -1
+            var searchQuery = ""
+
+            // Search bar
+            val searchBar = android.widget.EditText(requireContext()).apply {
+                hint = getString(R.string.macro_editor_search_key_hint)
+                inputType = android.text.InputType.TYPE_CLASS_TEXT
+                textSize = 14f
+                setSingleLine()
+                setPadding(requireContext().dp(12), requireContext().dp(8), requireContext().dp(12), requireContext().dp(8))
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    setStroke(requireContext().dp(1), borderColor)
+                    cornerRadius = requireContext().dp(4).toFloat()
+                }
+                setOnEditorActionListener { _, actionId, _ ->
+                    if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
+                        (context.getSystemService(android.content.Context.INPUT_METHOD_SERVICE)
+                            as? android.view.inputmethod.InputMethodManager)?.hideSoftInputFromWindow(
+                            windowToken, 0
+                        )
+                        true
+                    } else false
+                }
+                addTextChangedListener(object : android.text.TextWatcher {
+                    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                        searchQuery = s?.toString().orEmpty()
+                        renderChips()
+                    }
+                    override fun afterTextChanged(s: android.text.Editable?) {}
+                })
+            }
+            dialogView.addView(searchBar)
 
             val chipsContainer = FlowLayout(requireContext()).apply {
                 setPadding(requireContext().dp(12), requireContext().dp(8), requireContext().dp(12), requireContext().dp(8))
@@ -1763,7 +1797,12 @@ class MacroEditorDialogFragment : DialogFragment() {
 
             fun renderChips() {
                 chipsContainer.removeAllViews()
-                keysList.forEachIndexed { index, _ ->
+                val indices = if (searchQuery.isBlank()) keysList.indices.toList()
+                else keysList.indices.filter { i ->
+                    displayList[i].contains(searchQuery, ignoreCase = true) ||
+                        keysList[i].contains(searchQuery, ignoreCase = true)
+                }
+                indices.forEach { index ->
                     val isHighlighted = index == highlightIndex
                     val chip = TextView(requireContext()).apply {
                         text = displayList[index]

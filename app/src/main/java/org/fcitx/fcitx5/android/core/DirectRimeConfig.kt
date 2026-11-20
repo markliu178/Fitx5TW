@@ -23,13 +23,13 @@ internal class DirectRimeConfig(private val context: Context) {
     private val directoryFile = File(root, "config/conf/rime-data-dir.conf")
     private val optionsFile = File(root, "config/conf/rime.conf")
     private val directoryMoves = DirectoryMoveJournal(dataRoot, directoryFile)
-    var current = "rime"
+    var current: String? = null
         private set
     private val profiles = linkedMapOf<String, File>()
     var error = ""
     var preeditMode = "No"
         private set
-    val user: File get() = profiles.getValue(current)
+    val user: File? get() = current?.let { profiles[it] }
 
     fun load() {
         org.fcitx.fcitx5.android.data.UserDataRestoreRuntime.requirePathReady(context, root)
@@ -38,24 +38,33 @@ internal class DirectRimeConfig(private val context: Context) {
         profiles.clear()
         val saved = Ini.parseIniFromFile(directoryFile)?.core
         val names = saved?.findByName("Profiles")?.value.orEmpty().lines()
-            .filter(RimeDataDirectoryState::isValidName).distinct().ifEmpty { listOf("rime") }
+            .filter(RimeDataDirectoryState::isValidName).distinct()
         val external = saved?.findByName("ExternalPathsV2")?.value?.takeIf { it.isNotBlank() }
             ?.let { RimeDataDirectoryState.decodePaths(it, "", names) }
             ?: saved?.findByName("ExternalPaths")?.value?.takeIf { it.isNotBlank() }
                 ?.let { RimeDataDirectoryState.decodePaths(null, it, names) }.orEmpty()
         names.forEach { profiles[it] = external[it]?.let(::File) ?: File(dataRoot, it) }
+        // Filter out profiles whose physical directories no longer exist (user deleted them
+        // outside the app, e.g. via a file manager).
+        profiles.entries.removeAll { (_, path) ->
+            runCatching { !path.exists() }.getOrDefault(true)
+        }
         // Profiles copied into data/ outside the ZIP import flow are valid schemes too.
         refreshProfiles()
-        current = saved?.findByName("Current")?.value?.takeIf { it in profiles } ?: names.first()
+        current = saved?.findByName("Current")?.value?.takeIf { it in profiles }
+            ?: profiles.keys.firstOrNull()
         // Keep legacy registrations available for recovery, but destructive operations below
         // refuse to touch any directory containing another registered profile.
         error = if (profiles.values.toList().let { paths -> paths.indices.any { i ->
             paths.take(i).any { RimeProfileRestorePlan.overlap(it.canonicalFile, paths[i].canonicalFile) }
         } }) "方案目录存在包含关系，请改用互不重叠的目录" else ""
-        org.fcitx.fcitx5.android.data.UserDataRestoreRuntime.requirePathReady(context, user)
-        user.mkdirs()
-        // Finish an interrupted resource update before librime can open the profile.
-        WanxiangUpdateTransaction.recover(user)
+        if (current != null) {
+            val userDir = profiles.getValue(current)
+            org.fcitx.fcitx5.android.data.UserDataRestoreRuntime.requirePathReady(context, userDir)
+            userDir.mkdirs()
+            // Finish an interrupted resource update before librime can open the profile.
+            WanxiangUpdateTransaction.recover(userDir)
+        }
         preeditMode = Ini.parseIniFromFile(optionsFile)?.get("PreeditMode")?.value
             ?.takeIf { it in listOf("No", "ComposingText", "CommitPreview") } ?: "No"
         migratePrototype()
@@ -65,12 +74,13 @@ internal class DirectRimeConfig(private val context: Context) {
         val old = File(context.filesDir, "rime/user")
         val marker = File(root, "config/direct-rime-frontend-migrated")
         if (!marker.exists() && old.isDirectory) {
+            val target = user ?: return
             // Only copy into an empty profile; never overwrite a deployed frontend profile.
-            if (user.list().isNullOrEmpty()) {
+            if (target.list().isNullOrEmpty()) {
                 val staging = File.createTempFile(".prototype-", ".import", dataRoot)
                 check(staging.delete())
                 check(old.copyRecursively(staging)) { "无法迁移实验版用户数据" }
-                check(user.delete() && staging.renameTo(user)) { "无法安装迁移的用户数据" }
+                check(target.delete() && staging.renameTo(target)) { "无法安装迁移的用户数据" }
             }
             marker.parentFile!!.mkdirs()
             FileUtil.writeAtomically(marker, "1\n")
@@ -80,7 +90,7 @@ internal class DirectRimeConfig(private val context: Context) {
     fun directoryState(): RawConfig {
         refreshProfiles()
         return RawConfig(arrayOf(
-            RawConfig("Current", current), RawConfig("Profiles", profiles.keys.joinToString("\n")),
+            RawConfig("Current", current.orEmpty()), RawConfig("Profiles", profiles.keys.joinToString("\n")),
             RawConfig("PathsV2", profiles.entries.joinToString("\n") { "${hex(it.key)}|${hex(it.value.absolutePath)}" }),
             RawConfig("Error", error)
         ))
@@ -211,8 +221,7 @@ internal class DirectRimeConfig(private val context: Context) {
     }
 
     fun delete(name: String) {
-        require(name in profiles && profiles.size > 1) { "至少需要保留一个目录" }
-        require(name != current) { "请先切换到其他目录" }
+        require(name in profiles) { "目录不存在" }
         val file = profiles.getValue(name)
         org.fcitx.fcitx5.android.data.UserDataRestoreRuntime.requirePathReady(context, file)
         val internal = isInternal(name, file)
@@ -221,12 +230,13 @@ internal class DirectRimeConfig(private val context: Context) {
             requireNoNestedProfiles(name, file)
             directoryMoves.prepare(name, ".deleted-${UUID.randomUUID()}", true, directoriesText(next, current))
         }
-        try { persistDirectories(next, current) }
+        val nextCurrent = if (current == name) next.keys.firstOrNull() else current
+        try { persistDirectories(next, nextCurrent) }
         catch (e: Exception) {
             if (internal) try { directoryMoves.recover() } catch (recovery: Exception) { e.addSuppressed(recovery) }
             throw e
         }
-        publishDirectories(next, current)
+        publishDirectories(next, nextCurrent)
         // External directories are only unregistered; native or user data is never recursively followed through links.
         if (internal) directoryMoves.recover()
     }
