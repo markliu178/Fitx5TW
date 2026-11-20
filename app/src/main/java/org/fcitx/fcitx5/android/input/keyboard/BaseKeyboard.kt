@@ -1962,12 +1962,10 @@ abstract class BaseKeyboard(
                                         }
                                     }
                                     if (innerDeleteActive) {
-                                        // 位移夹在预编辑文本两端，越界后反向滑动能立即
-                                        // 回退，而不是先抵消越界的那一段。
-                                        innerDeleteSteps = (innerDeleteSteps + countX).coerceIn(
-                                            -innerDeleteStart,
-                                            innerDeleteLength - innerDeleteStart
-                                        )
+                                        // 只允许向左选取：左滑累计步数，右滑只回缩，
+                                        // 回到起始光标即边界，继续右滑被忽略。
+                                        innerDeleteSteps =
+                                            (innerDeleteSteps + countX).coerceIn(-innerDeleteStart, 0)
                                         val target = innerDeleteStart + innerDeleteSteps
                                         // 滑动过程只移动光标，不删除字符。
                                         getService()?.moveComposingCursorTo(
@@ -2002,9 +2000,9 @@ abstract class BaseKeyboard(
                             val horizontal = kotlin.math.abs(event.totalX) >
                                 kotlin.math.abs(event.totalY)
                             if (innerDeleteActive) {
-                                // 内删：滑动期间只移动光标，抬手时删除光标起点与终点之间的
-                                // 编码字符。允许左右往返，终点在起点两侧都按区间删除；
-                                // 回到起点则不删。
+                                // 内删：滑动期间只移动光标，抬手时删除光标起点左侧的编码
+                                // 字符。右滑只能回缩选区，回到起点即边界，继续右滑忽略，
+                                // 因此步数归零时不删。
                                 if (innerDeleteSteps != 0) {
                                     val target = (innerDeleteStart + innerDeleteSteps)
                                         .coerceIn(0, innerDeleteLength)
