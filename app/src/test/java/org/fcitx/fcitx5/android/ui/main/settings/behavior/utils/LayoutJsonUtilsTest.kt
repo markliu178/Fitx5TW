@@ -11,6 +11,8 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import org.fcitx.fcitx5.android.input.keyboard.AlphabetKey
+import org.fcitx.fcitx5.android.input.keyboard.BackspaceKey
+import org.fcitx.fcitx5.android.input.keyboard.BackspaceSwipeLeftMode
 import org.fcitx.fcitx5.android.input.keyboard.KeyDef
 import org.fcitx.fcitx5.android.input.keyboard.KeyRef
 import org.fcitx.fcitx5.android.input.keyboard.MacroAction
@@ -226,6 +228,39 @@ class LayoutJsonUtilsTest {
         val json = LayoutJsonUtils.keyDefToJson(def)
         assertNull(json["swipe"])
         assertNull(json["swipeLabel"])
+    }
+
+    /**
+     * 退格键左滑事件：内删模式必须能往返；旧布局里的 swipeLeft 宏不再生效，
+     * 保存时也不应残留（左滑固定为内置清删/内删）。
+     */
+    @Test
+    fun backspaceSwipeLeftModeRoundTripsAndDropsLegacyLeftMacro() {
+        val parsed = LayoutJsonUtils.parseKeyJsonArray(
+            row(
+                """
+                [{
+                  "type": "BackspaceKey",
+                  "swipeLeftMode": "inner",
+                  "swipeLeft": {"macro": [{"type": "tap", "keys": [{"fcitx": "Left"}]}]}
+                }]
+                """.trimIndent()
+            )
+        )
+        val def = LayoutJsonUtils.createKeyDef(parsed[0]) as BackspaceKey
+        assertEquals(BackspaceSwipeLeftMode.Inner, def.swipeLeftMode)
+
+        val json = LayoutJsonUtils.keyDefToJson(def)
+        assertEquals("inner", json["swipeLeftMode"])
+        assertNull("旧左滑宏被忽略并清理", json["swipeLeft"])
+
+        val clearJson = LayoutJsonUtils.keyDefToJson(
+            LayoutJsonUtils.createKeyDef(
+                LayoutJsonUtils.parseKeyJsonArray(row("""[{"type": "BackspaceKey"}]"""))[0]
+            )!!
+        )
+        assertNull("默认清删不写字段", clearJson["swipeLeftMode"])
+        assertNull(clearJson["swipeLeft"])
     }
 
     /**

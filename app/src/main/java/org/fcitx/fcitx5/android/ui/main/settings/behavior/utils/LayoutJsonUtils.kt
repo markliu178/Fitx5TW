@@ -177,6 +177,7 @@ object LayoutJsonUtils {
         "swipeUp",
         "swipeDown",
         "swipeLeft",
+        "swipeLeftMode",
         "swipeRight",
         "swipe",
         "longPress",
@@ -460,6 +461,7 @@ object LayoutJsonUtils {
             swipeDown = obj["swipeDown"]?.jsonObject?.let { parseMacroAction(it) },
             swipeLeft = obj["swipeLeft"]?.jsonObject?.let { parseMacroAction(it) },
             swipeRight = obj["swipeRight"]?.jsonObject?.let { parseMacroAction(it) },
+            swipeLeftMode = obj["swipeLeftMode"]?.jsonPrimitive?.contentOrNull,
             swipe = obj["swipe"]?.jsonObject?.let { parseMacroAction(it) },
             longPress = obj["longPress"]?.jsonObject?.let { parseMacroAction(it) },
             independentColor = independentColor,
@@ -957,6 +959,8 @@ object LayoutJsonUtils {
          val swipeDown: MacroAction? = null,
         val swipeLeft: MacroAction? = null,
         val swipeRight: MacroAction? = null,
+        /** 退格键左滑事件的内置行为：clear（清删）/ inner（内删）。 */
+        val swipeLeftMode: String? = null,
          val swipe: MacroAction? = null,  // 旧版单一划动宏
         val longPress: MacroAction? = null,  // MacroKey 使用
         val independentColor: Boolean? = null,
@@ -1004,7 +1008,7 @@ object LayoutJsonUtils {
             is BackspaceKey -> putDirectionalSwipeFields(
                 json, keyDef.swipeLabel, keyDef.swipeUpLabel, keyDef.swipeDownLabel,
                 keyDef.swipe, keyDef.swipeUp, keyDef.swipeDown,
-                keyDef.swipeLeft, keyDef.swipeRight
+                null, keyDef.swipeRight
             )
             is MacroKey -> putDirectionalSwipeFields(
                 json, null, keyDef.swipeUpLabel, keyDef.swipeDownLabel, keyDef.swipe,
@@ -1119,6 +1123,9 @@ object LayoutJsonUtils {
             is BackspaceKey -> {
                 json["weight"] = appearance.percentWidth
                 putDirectionalSwipeFieldsForKey(json, keyDef)
+                if (keyDef.swipeLeftMode != BackspaceSwipeLeftMode.Clear) {
+                    json["swipeLeftMode"] = keyDef.swipeLeftMode.value
+                }
             }
             is NumPadKey -> {
                 json["label"] = (appearance as? KeyDef.Appearance.Text)?.displayText
@@ -1437,8 +1444,9 @@ object LayoutJsonUtils {
             "BackspaceKey" -> BackspaceKey(
                 swipeUp = directionalUpMacro,
                 swipeDown = directionalDownMacro,
-                swipeLeft = key.swipeLeft,
+                // 左滑固定为内置手势，旧布局里的 swipeLeft 宏不再生效。
                 swipeRight = key.swipeRight,
+                swipeLeftMode = BackspaceSwipeLeftMode.fromValue(key.swipeLeftMode),
                 swipeUpLabel = directionalUpLabel,
                 swipeDownLabel = directionalDownLabel,
                 swipe = directionalLegacyMacro,

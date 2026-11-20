@@ -2226,6 +2226,64 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
         }
     }
 
+    /** 内删手势开始时的预编辑快照（UTF-16 位置与文本）。 */
+    internal data class ComposingTextSnapshot(val cursor: Int, val length: Int, val text: String)
+
+    /**
+     * 读取当前正在输入的预编辑文本。没有预编辑时返回 null，调用方据此回退到
+     * 非合成态的滑删行为。
+     */
+    internal fun composingTextSnapshot(): ComposingTextSnapshot? {
+        val text = composingText
+        if (text.isEmpty()) return null
+        // cursor 为 -1 表示引擎没有给出光标位置，按文本末尾处理。
+        val cursor = if (text.cursor in 0..text.length) text.cursor else text.length
+        return ComposingTextSnapshot(cursor, text.length, text.toString())
+    }
+
+    /**
+     * 内删滑动过程中把编码光标移动到 [position]（UTF-16 位置，相对预编辑文本）。
+     * 只在预编辑文本仍与 [expectedPreedit] 一致时生效，避免合成被提交后误动正文。
+     */
+    internal fun moveComposingCursorTo(position: Int, expectedPreedit: String) {
+        val text = composingText
+        if (text.isEmpty() || text.toString() != expectedPreedit) return
+        val target = position.coerceIn(0, text.length)
+        val codePointPosition = text.codePointCountUntil(target)
+        val expectedSession = FcitxDaemon.currentInputSession
+        postFcitxJob {
+            moveCursorIfCurrent(codePointPosition, expectedSession, expectedPreedit)
+        }
+    }
+
+    /**
+     * 内删抬手：删除预编辑文本中 [start, end) 区间。
+     *
+     * 先把光标移到区间起点再统一向前删除，这样不依赖滑动结束时光标实际停在哪一侧。
+     * 预编辑文本已被提交或改变时 [moveCursorIfCurrent] 会失败，本次删除整体跳过。
+     */
+    internal fun deleteComposingRange(start: Int, end: Int, expectedPreedit: String) {
+        val text = composingText
+        if (text.isEmpty() || text.toString() != expectedPreedit) return
+        val from = start.coerceIn(0, text.length)
+        val to = end.coerceIn(0, text.length)
+        if (from == to) return
+        val first = if (from < to) from else to
+        val last = if (from < to) to else from
+        val firstCodePoint = text.codePointCountUntil(first)
+        val count = text.codePointCountUntil(last) - firstCodePoint
+        if (count <= 0) return
+        val expectedSession = FcitxDaemon.currentInputSession
+        postFcitxKeyJob {
+            if (!moveCursorIfCurrent(firstCodePoint, expectedSession, expectedPreedit)) {
+                return@postFcitxKeyJob
+            }
+            repeat(count) {
+                sendKey(KeySym(FcitxKeyMapping.FcitxKey_Delete), KeyStates.Virtual)
+            }
+        }
+    }
+
     // because setComposingText(text, cursor) can only put cursor at end of composing,
     // sometimes onUpdateSelection would receive event with wrong cursor position.
     // those events need to be filtered.

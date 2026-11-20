@@ -214,6 +214,13 @@ class KeyEditorForm(
     // 用一组共享状态即可，保存时按当前键型统一写入 swipeLeft/swipeRight。
     private var horizontalSwipeLeftStepsData: List<Any> = emptyList()
     private var horizontalSwipeRightStepsData: List<Any> = emptyList()
+
+    /**
+     * 退格键左滑事件的内置行为：
+     * - [BACKSPACE_SWIPE_LEFT_CLEAR] 清删（默认）
+     * - [BACKSPACE_SWIPE_LEFT_INNER] 内删
+     */
+    private var backspaceSwipeLeftMode: String = BACKSPACE_SWIPE_LEFT_CLEAR
     private var macroEditCallback: ((List<Any>) -> Unit)? = null
 
     /**
@@ -445,6 +452,7 @@ class KeyEditorForm(
         nonMacroSwipeDownStepsData = emptyList()
         horizontalSwipeLeftStepsData = emptyList()
         horizontalSwipeRightStepsData = emptyList()
+        backspaceSwipeLeftMode = BACKSPACE_SWIPE_LEFT_CLEAR
         macroSwipeUpStepsData = emptyList()
         macroSwipeDownStepsData = emptyList()
 
@@ -814,7 +822,13 @@ class KeyEditorForm(
                         }
                     }
                 ).forEach { fieldsContainer.addView(it) }
-                addHorizontalSwipeMacroEditors(keyData)
+                if (selectedType == "BackspaceKey") {
+                    // 退格键左滑固定为内置手势，只保留右滑宏编辑；左滑改为选择
+                    // 清删/内删，避免与自带滑删冲突。
+                    addBackspaceHorizontalSwipeEditors(keyData)
+                } else {
+                    addHorizontalSwipeMacroEditors(keyData)
+                }
             }
 
             "CommaKey", "LanguageKey" -> {
@@ -1287,8 +1301,72 @@ class KeyEditorForm(
         ).forEach { fieldsContainer.addView(it) }
     }
 
+    /**
+     * 退格键的左滑事件不再保存宏：左滑固定为内置手势，只保留清删/内删模式；
+     * 右滑仍按普通宏编辑。
+     */
+    private fun addBackspaceHorizontalSwipeEditors(sourceKeyData: Map<String, Any?>) {
+        backspaceSwipeLeftMode = (sourceKeyData["swipeLeftMode"] as? String)
+            ?.takeIf { it == BACKSPACE_SWIPE_LEFT_INNER }
+            ?: BACKSPACE_SWIPE_LEFT_CLEAR
+        horizontalSwipeLeftStepsData = emptyList()
+        horizontalSwipeRightStepsData = macroStepsOf(sourceKeyData["swipeRight"])
+        createMacroEditorButton(
+            title = getString(R.string.text_keyboard_layout_macro_swipe_left_event),
+            previewText = getString(
+                if (backspaceSwipeLeftMode == BACKSPACE_SWIPE_LEFT_INNER) {
+                    R.string.text_keyboard_layout_backspace_swipe_left_inner
+                } else {
+                    R.string.text_keyboard_layout_backspace_swipe_left_clear
+                }
+            ),
+            onClick = { showBackspaceSwipeLeftModePicker() }
+        ).forEach { fieldsContainer.addView(it) }
+        createMacroEditorButton(
+            title = getString(R.string.text_keyboard_layout_macro_swipe_right_event),
+            previewText = buildMacroPreview(horizontalSwipeRightStepsData),
+            onClick = {
+                openMacroEditor(
+                    horizontalSwipeRightStepsData,
+                    getString(R.string.text_keyboard_layout_macro_swipe_right_event),
+                    SLOT_SWIPE_RIGHT
+                ) { newSteps ->
+                    val draft = buildDraftKeyData()
+                    horizontalSwipeRightStepsData = newSteps
+                    applyHorizontalSwipeDraft(draft)
+                    keyData = draft
+                    rebuildFields()
+                    updateActionButtonState()
+                }
+            }
+        ).forEach { fieldsContainer.addView(it) }
+    }
+
+    private fun showBackspaceSwipeLeftModePicker() {
+        val values = arrayOf(BACKSPACE_SWIPE_LEFT_CLEAR, BACKSPACE_SWIPE_LEFT_INNER)
+        val labels = arrayOf(
+            getString(R.string.text_keyboard_layout_backspace_swipe_left_clear),
+            getString(R.string.text_keyboard_layout_backspace_swipe_left_inner)
+        )
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.text_keyboard_layout_macro_swipe_left_event)
+            .setSingleChoiceItems(labels, values.indexOf(backspaceSwipeLeftMode)) { dialog, which ->
+                backspaceSwipeLeftMode = values.getOrElse(which) { BACKSPACE_SWIPE_LEFT_CLEAR }
+                val draft = buildDraftKeyData()
+                keyData = draft
+                dialog.dismiss()
+                rebuildFields()
+                updateActionButtonState()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
     private fun applyHorizontalSwipeDraft(draft: MutableMap<String, Any?>) {
-        if (horizontalSwipeLeftStepsData.isNotEmpty()) {
+        if (selectedType == "BackspaceKey") {
+            // 左滑固定为内置手势，旧布局里的 swipeLeft 宏不再保留。
+            draft.remove("swipeLeft")
+        } else if (horizontalSwipeLeftStepsData.isNotEmpty()) {
             draft["swipeLeft"] = mapOf("macro" to horizontalSwipeLeftStepsData)
         } else {
             draft.remove("swipeLeft")
@@ -1297,6 +1375,13 @@ class KeyEditorForm(
             draft["swipeRight"] = mapOf("macro" to horizontalSwipeRightStepsData)
         } else {
             draft.remove("swipeRight")
+        }
+        if (selectedType == "BackspaceKey") {
+            if (backspaceSwipeLeftMode == BACKSPACE_SWIPE_LEFT_INNER) {
+                draft["swipeLeftMode"] = BACKSPACE_SWIPE_LEFT_INNER
+            } else {
+                draft.remove("swipeLeftMode")
+            }
         }
     }
 
@@ -2563,6 +2648,12 @@ class KeyEditorForm(
             "LayoutSwitchKey", "SymbolKey", "MacroKey",
             "CapsKey", "ReturnKey", "BackspaceKey", "SpaceKey"
         )
+
+        /** 退格键左滑事件：清删（自带的按距离滑删）。 */
+        private const val BACKSPACE_SWIPE_LEFT_CLEAR = "clear"
+
+        /** 退格键左滑事件：内删（合成态滑动移光标、抬手删区间）。 */
+        private const val BACKSPACE_SWIPE_LEFT_INNER = "inner"
 
         /** 行设置写入的行级副标签偏移，编辑单个键时必须原样带回。 */
         private val ROW_SWIPE_OFFSET_FIELDS = listOf(

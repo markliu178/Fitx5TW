@@ -1905,9 +1905,19 @@ abstract class BaseKeyboard(
                     def.swipe != null || def.swipeUp != null || def.swipeDown != null
                 ) inputSwipeThreshold else disabledSwipeThreshold
                 var backspaceSwipeAxis: SwipeAxis? = null
+                // 内删（swipeLeftMode == Inner）在合成态下的手势状态。只在真的开始
+                // 横向左滑且存在预编辑文本时启用，非合成态保持清删（清空/删选区）。
+                var innerDeleteActive = false
+                var innerDeleteStart = 0
+                var innerDeleteLength = 0
+                var innerDeleteSteps = 0
+                var innerDeleteText: String? = null
                 onGestureListener = OnGestureListener { view, event ->
                     when (event.type) {
                         GestureType.Down -> {
+                            innerDeleteActive = false
+                            innerDeleteText = null
+                            innerDeleteSteps = 0
                             // 转发"退格键被按下"给退格边界保护：长按删空抬手后极短时间内
                             // 又开始的新按压是抬手抖动/回弹，不应删掉正文（见
                             // BackspaceBoundaryGuard.onBackspacePressStarted）。
@@ -1925,13 +1935,42 @@ abstract class BaseKeyboard(
                                 }
                             }
                             if (backspaceSwipeAxis == SwipeAxis.X && countX != 0) {
-                                // 横向划过配置了动作的方向时不移动光标：抬手时要按
-                                // 总位移触发该动作，边移光标边触发会让两种结果叠加。
-                                val hasHorizontalAction =
-                                    if (countX < 0) def.swipeLeft != null
-                                    else def.swipeRight != null
+                                // 左滑固定为内置手势（清删/内删），不再触发左滑宏；
+                                // 右滑仍可配置宏，横向划过配置了宏的方向时不移动光标：
+                                // 抬手时要按总位移触发该动作，边移光标边触发会让两种结果叠加。
+                                val hasHorizontalAction = countX > 0 && def.swipeRight != null
                                 if (hasHorizontalAction) {
                                     false
+                                } else if (
+                                    def.swipeLeftMode == BackspaceSwipeLeftMode.Inner &&
+                                    (innerDeleteActive || countX < 0)
+                                ) {
+                                    if (!innerDeleteActive) {
+                                        // 首次左滑时记录合成文本与光标起点；没有正在输入的
+                                        // 拼音就退回清删（删选区/正文）的行为。
+                                        val snapshot = getService()?.composingTextSnapshot()
+                                        if (snapshot != null) {
+                                            innerDeleteActive = true
+                                            innerDeleteStart = snapshot.cursor
+                                            innerDeleteLength = snapshot.length
+                                            innerDeleteText = snapshot.text
+                                        }
+                                    }
+                                    if (innerDeleteActive) {
+                                        innerDeleteSteps += countX
+                                        val target = (innerDeleteStart + innerDeleteSteps)
+                                            .coerceIn(0, innerDeleteLength)
+                                        // 滑动过程只移动光标，不删除字符。
+                                        getService()?.moveComposingCursorTo(
+                                            target, innerDeleteText.orEmpty()
+                                        )
+                                        if (hapticOnRepeat) InputFeedbacks.hapticFeedback(view)
+                                        true
+                                    } else {
+                                        onAction(KeyAction.MoveSelectionAction(countX))
+                                        if (hapticOnRepeat) InputFeedbacks.hapticFeedback(view)
+                                        true
+                                    }
                                 } else {
                                     onAction(KeyAction.MoveSelectionAction(countX))
                                     if (hapticOnRepeat) InputFeedbacks.hapticFeedback(view)
@@ -1953,8 +1992,36 @@ abstract class BaseKeyboard(
                             backspaceSwipeAxis = null
                             val horizontal = kotlin.math.abs(event.totalX) >
                                 kotlin.math.abs(event.totalY)
-                            val horizontalAction = if (horizontal && event.totalX != 0) {
-                                if (event.totalX < 0) def.swipeLeft else def.swipeRight
+                            if (innerDeleteActive) {
+                                // 内删：滑动期间只移动光标，抬手时删除光标起点与终点之间的
+                                // 编码字符。只有判定位左滑才删；回滑到起点右侧不删。
+                                if (horizontal && event.totalX < 0) {
+                                    val target = (innerDeleteStart + innerDeleteSteps)
+                                        .coerceIn(0, innerDeleteLength)
+                                    getService()?.deleteComposingRange(
+                                        innerDeleteStart, target, innerDeleteText.orEmpty()
+                                    )
+                                }
+                                // 抬手即结束本次退格按住序列（与 DeleteSelectionAction 一致）。
+                                getService()?.backspaceBoundaryGuard?.onUserKeyAction()
+                                innerDeleteActive = false
+                                innerDeleteText = null
+                                innerDeleteSteps = 0
+                                return@OnGestureListener true
+                            }
+                            if (
+                                def.swipeLeftMode == BackspaceSwipeLeftMode.Inner &&
+                                horizontal && event.totalX < 0 &&
+                                getService()?.composingTextSnapshot() != null
+                            ) {
+                                // 内删模式下存在预编辑文本，但滑动过快没产生 Move 快照时，
+                                // 也不回退到清删，避免抬手把整段编码清掉。
+                                getService()?.backspaceBoundaryGuard?.onUserKeyAction()
+                                return@OnGestureListener true
+                            }
+                            // 左滑固定走内置清删，只有右滑可能触发配置的宏。
+                            val horizontalAction = if (horizontal && event.totalX > 0) {
+                                def.swipeRight
                             } else null
                             val swipeAction = selectSwipeAction(
                                 view,

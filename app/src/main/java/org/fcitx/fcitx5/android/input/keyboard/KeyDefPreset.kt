@@ -324,6 +324,25 @@ class LayoutSwitchKey(
     )
 )
 
+/**
+ * 退格键「左滑事件」的内置行为。
+ *
+ * 左滑不再走宏：退格键自带的滑动删除（清删）与宏会互相覆盖，所以把左滑固定为内置手势，
+ * 由这个模式决定合成态下的删除方式。
+ */
+enum class BackspaceSwipeLeftMode(val value: String) {
+    /** 清删：按下并左滑，按滑动距离删除正文；合成中则取消整段编码。 */
+    Clear("clear"),
+
+    /** 内删：非合成态与清删一致；合成态滑动只移动编码光标，抬手删除光标起止区间。 */
+    Inner("inner");
+
+    companion object {
+        fun fromValue(value: String?): BackspaceSwipeLeftMode =
+            entries.firstOrNull { it.value == value } ?: Clear
+    }
+}
+
 class BackspaceKey(
     percentWidth: Float = 0.15f,
     variant: Variant = Variant.Alternative,
@@ -337,10 +356,11 @@ class BackspaceKey(
     val swipeLabel: String? = null,
     val swipeUp: MacroAction? = null,
     val swipeDown: MacroAction? = null,
-    val swipeLeft: MacroAction? = null,
     val swipeRight: MacroAction? = null,
     val swipeUpLabel: String? = null,
-    val swipeDownLabel: String? = null
+    val swipeDownLabel: String? = null,
+    /** 左滑事件的内置行为，见 [BackspaceSwipeLeftMode]。 */
+    val swipeLeftMode: BackspaceSwipeLeftMode = BackspaceSwipeLeftMode.Clear
 ) : KeyDef(
     if (swipeLabel.isNullOrEmpty() && swipeUpLabel.isNullOrEmpty() && swipeDownLabel.isNullOrEmpty()) {
         Appearance.Image(
