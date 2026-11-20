@@ -28,6 +28,9 @@ import org.fcitx.fcitx5.android.data.prefs.AppPrefs
 import org.fcitx.fcitx5.android.data.theme.SystemColorResourceId
 import org.fcitx.fcitx5.android.data.theme.ThemeManager
 import org.fcitx.fcitx5.android.data.theme.ThemeMonet
+import org.fcitx.fcitx5.android.input.keyboard.DEFAULT_SWIPE_LEFT_STEP_DP
+import org.fcitx.fcitx5.android.input.keyboard.MAX_SWIPE_LEFT_STEP_DP
+import org.fcitx.fcitx5.android.input.keyboard.MIN_SWIPE_LEFT_STEP_DP
 import org.fcitx.fcitx5.android.ui.main.settings.behavior.utils.LayoutJsonUtils
 import org.fcitx.fcitx5.android.ui.main.settings.theme.SystemColorResourcePickerDialog
 import org.fcitx.fcitx5.android.ui.main.settings.theme.ThemeColorEditorActivity
@@ -221,6 +224,9 @@ class KeyEditorForm(
      * - [BACKSPACE_SWIPE_LEFT_INNER] 内删
      */
     private var backspaceSwipeLeftMode: String = BACKSPACE_SWIPE_LEFT_CLEAR
+    /** 内删时编码光标每移动 1 个字母所需的滑动距离（dp）。 */
+    private var backspaceSwipeLeftStepDp: Float = DEFAULT_SWIPE_LEFT_STEP_DP
+    private var backspaceSwipeLeftStepDpEdit: EditText? = null
     private var macroEditCallback: ((List<Any>) -> Unit)? = null
 
     /**
@@ -453,6 +459,8 @@ class KeyEditorForm(
         horizontalSwipeLeftStepsData = emptyList()
         horizontalSwipeRightStepsData = emptyList()
         backspaceSwipeLeftMode = BACKSPACE_SWIPE_LEFT_CLEAR
+        backspaceSwipeLeftStepDp = DEFAULT_SWIPE_LEFT_STEP_DP
+        backspaceSwipeLeftStepDpEdit = null
         macroSwipeUpStepsData = emptyList()
         macroSwipeDownStepsData = emptyList()
 
@@ -1309,6 +1317,9 @@ class KeyEditorForm(
         backspaceSwipeLeftMode = (sourceKeyData["swipeLeftMode"] as? String)
             ?.takeIf { it == BACKSPACE_SWIPE_LEFT_INNER }
             ?: BACKSPACE_SWIPE_LEFT_CLEAR
+        backspaceSwipeLeftStepDp = (sourceKeyData["swipeLeftStepDp"] as? Number)?.toFloat()
+            ?.coerceIn(MIN_SWIPE_LEFT_STEP_DP, MAX_SWIPE_LEFT_STEP_DP)
+            ?: DEFAULT_SWIPE_LEFT_STEP_DP
         horizontalSwipeLeftStepsData = emptyList()
         horizontalSwipeRightStepsData = macroStepsOf(sourceKeyData["swipeRight"])
         createMacroEditorButton(
@@ -1322,6 +1333,21 @@ class KeyEditorForm(
             ),
             onClick = { showBackspaceSwipeLeftModePicker() }
         ).forEach { fieldsContainer.addView(it) }
+        if (backspaceSwipeLeftMode == BACKSPACE_SWIPE_LEFT_INNER) {
+            val stepText = if (backspaceSwipeLeftStepDp % 1f == 0f) {
+                backspaceSwipeLeftStepDp.toInt().toString()
+            } else {
+                backspaceSwipeLeftStepDp.toString()
+            }
+            val (container, editText) = uiBuilder.createEditField(
+                getString(R.string.text_keyboard_layout_backspace_swipe_left_step_dp),
+                stepText
+            )
+            editText.inputType = android.text.InputType.TYPE_CLASS_NUMBER or
+                android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+            backspaceSwipeLeftStepDpEdit = editText
+            fieldsContainer.addView(container)
+        }
         createMacroEditorButton(
             title = getString(R.string.text_keyboard_layout_macro_swipe_right_event),
             previewText = buildMacroPreview(horizontalSwipeRightStepsData),
@@ -1379,8 +1405,18 @@ class KeyEditorForm(
         if (selectedType == "BackspaceKey") {
             if (backspaceSwipeLeftMode == BACKSPACE_SWIPE_LEFT_INNER) {
                 draft["swipeLeftMode"] = BACKSPACE_SWIPE_LEFT_INNER
+                val stepDp = backspaceSwipeLeftStepDpEdit?.text?.toString()
+                    ?.toFloatOrNull()
+                    ?.coerceIn(MIN_SWIPE_LEFT_STEP_DP, MAX_SWIPE_LEFT_STEP_DP)
+                    ?: backspaceSwipeLeftStepDp
+                if (stepDp != DEFAULT_SWIPE_LEFT_STEP_DP) {
+                    draft["swipeLeftStepDp"] = stepDp
+                } else {
+                    draft.remove("swipeLeftStepDp")
+                }
             } else {
                 draft.remove("swipeLeftMode")
+                draft.remove("swipeLeftStepDp")
             }
         }
     }

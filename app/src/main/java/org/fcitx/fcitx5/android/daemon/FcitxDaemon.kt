@@ -56,6 +56,7 @@ object FcitxDaemon {
     private val fcitxImpl by lazy { InputEngineApi(engine) }
 
     val currentInputSession get() = engine.inputSession
+    val preeditMode get() = engine.preeditMode
     fun prepareInputSession(generation: Long, program: String, flags: CapabilityFlags, needsRime: Boolean) =
         engine.prepareInputSession(generation, program, flags, needsRime)
     fun requireInputSession(): Boolean = engine.requireInputSession(engine.inputSession)

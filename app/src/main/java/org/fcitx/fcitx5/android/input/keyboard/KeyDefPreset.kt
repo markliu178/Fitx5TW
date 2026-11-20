@@ -330,6 +330,11 @@ class LayoutSwitchKey(
  * 左滑不再走宏：退格键自带的滑动删除（清删）与宏会互相覆盖，所以把左滑固定为内置手势，
  * 由这个模式决定合成态下的删除方式。
  */
+/** 内删时编码光标每移动 1 个字母所需滑动距离（dp）的默认值与可选范围。 */
+const val DEFAULT_SWIPE_LEFT_STEP_DP = 10f
+const val MIN_SWIPE_LEFT_STEP_DP = 2f
+const val MAX_SWIPE_LEFT_STEP_DP = 48f
+
 enum class BackspaceSwipeLeftMode(val value: String) {
     /** 清删：按下并左滑，按滑动距离删除正文；合成中则取消整段编码。 */
     Clear("clear"),
@@ -360,7 +365,9 @@ class BackspaceKey(
     val swipeUpLabel: String? = null,
     val swipeDownLabel: String? = null,
     /** 左滑事件的内置行为，见 [BackspaceSwipeLeftMode]。 */
-    val swipeLeftMode: BackspaceSwipeLeftMode = BackspaceSwipeLeftMode.Clear
+    val swipeLeftMode: BackspaceSwipeLeftMode = BackspaceSwipeLeftMode.Clear,
+    /** 内删时编码光标每移动 1 个字母所需的手指滑动距离（dp）；越小越灵敏。 */
+    val swipeLeftStepDp: Float = DEFAULT_SWIPE_LEFT_STEP_DP
 ) : KeyDef(
     if (swipeLabel.isNullOrEmpty() && swipeUpLabel.isNullOrEmpty() && swipeDownLabel.isNullOrEmpty()) {
         Appearance.Image(

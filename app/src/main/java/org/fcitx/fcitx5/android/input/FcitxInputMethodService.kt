@@ -384,9 +384,13 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
     private val composing = CursorRange()
     private var composingText = FormattedText.Empty
 
+    /** 拼音栏（面板预编辑）；PreeditMode=No 时组合文本只在这里。 */
+    private var panelPreedit = FormattedText.Empty
+
     private fun resetComposingState() {
         composing.clear()
         composingText = FormattedText.Empty
+        panelPreedit = FormattedText.Empty
     }
 
     private fun updateStatusIcon(entry: InputMethodEntry = fcitx.runImmediately { inputMethodEntryCached }) {
@@ -975,6 +979,7 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
                 updateComposingText(event.data)
             }
             is FcitxEvent.InputPanelEvent -> {
+                panelPreedit = event.data.preedit
                 backspaceGuardPanelPreeditNotEmpty = event.data.preedit.isNotEmpty()
                 feedBackspaceGuardComposingState()
             }
@@ -2239,8 +2244,16 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
      * 非合成态的滑删行为。
      */
     internal fun composingTextSnapshot(): ComposingTextSnapshot? {
-        val text = composingText
-        if (text.isEmpty()) return null
+        // PreeditMode=No 时拼音显示在面板预编辑里，客户端预编辑恒空；只有
+        // ComposingText 模式才用客户端预编辑，避免把 CommitPreview 的候选预览
+        // 当成可编辑的编码。
+        val text = if (panelPreedit.isNotEmpty()) {
+            panelPreedit
+        } else if (FcitxDaemon.preeditMode == "ComposingText" && composingText.isNotEmpty()) {
+            composingText
+        } else {
+            return null
+        }
         // cursor 为 -1 表示引擎没有给出光标位置，按文本末尾处理。
         val cursor = if (text.cursor in 0..text.length) text.cursor else text.length
         return ComposingTextSnapshot(
@@ -2260,12 +2273,11 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
         expectedPreedit: String,
         expectedSession: Long
     ) {
-        val text = composingText
-        if (text.isEmpty() || text.toString() != expectedPreedit) return
-        val target = position.coerceIn(0, text.length)
-        val codePointPosition = text.codePointCountUntil(target)
+        if (expectedPreedit.isEmpty()) return
+        val target = position.coerceIn(0, expectedPreedit.length)
+        val codePointPosition = expectedPreedit.codePointCount(0, target)
         postFcitxJob {
-            moveCursorIfCurrent(codePointPosition, expectedSession, expectedPreedit)
+            moveCompositionCursor(codePointPosition, expectedSession, expectedPreedit)
         }
     }
 
@@ -2274,7 +2286,7 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
      *
      * 先把光标移到区间末尾再向前删除，这样不依赖滑动结束时光标实际停在哪一侧，
      * 也不依赖引擎对 Delete 的绑定。预编辑文本已提交、改变或会话切换时
-     * [moveCursorIfCurrent] 会失败，本次删除整体跳过。
+     * [moveCompositionCursor] 会失败，本次删除整体跳过。
      */
     internal fun deleteComposingRange(
         start: Int,
@@ -2282,18 +2294,22 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
         expectedPreedit: String,
         expectedSession: Long
     ) {
-        val text = composingText
-        if (text.isEmpty() || text.toString() != expectedPreedit) return
-        val from = start.coerceIn(0, text.length)
-        val to = end.coerceIn(0, text.length)
+        if (expectedPreedit.isEmpty()) return
+        val from = start.coerceIn(0, expectedPreedit.length)
+        val to = end.coerceIn(0, expectedPreedit.length)
         if (from == to) return
         val first = if (from < to) from else to
         val last = if (from < to) to else from
-        val lastCodePoint = text.codePointCountUntil(last)
-        val count = lastCodePoint - text.codePointCountUntil(first)
-        if (count <= 0) return
+        val firstCodePoint = expectedPreedit.codePointCount(0, first)
+        val lastCodePoint = expectedPreedit.codePointCount(0, last)
+        if (lastCodePoint <= firstCodePoint) return
         postFcitxKeyJob {
-            if (!moveCursorIfCurrent(lastCodePoint, expectedSession, expectedPreedit)) {
+            // 拼音栏可能插入音节分隔符，退格次数要按原始编码字符计算。
+            val count = compositionRawCharacterCount(
+                firstCodePoint, lastCodePoint, expectedSession, expectedPreedit
+            ) ?: return@postFcitxKeyJob
+            if (count <= 0) return@postFcitxKeyJob
+            if (!moveCompositionCursor(lastCodePoint, expectedSession, expectedPreedit)) {
                 return@postFcitxKeyJob
             }
             repeat(count) {

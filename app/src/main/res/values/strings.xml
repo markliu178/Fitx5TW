@@ -764,6 +764,7 @@
     <string name="text_keyboard_layout_macro_swipe_right_event">Swipe Event (Right)</string>
     <string name="text_keyboard_layout_backspace_swipe_left_clear">Clear Delete</string>
     <string name="text_keyboard_layout_backspace_swipe_left_inner">Inner Delete</string>
+    <string name="text_keyboard_layout_backspace_swipe_left_step_dp">Inner delete distance per character (dp, smaller is faster)</string>
     <string name="text_keyboard_layout_macro_longpress_event">Long Press Event</string>
     <string name="text_keyboard_layout_longpress_label">Long Press Label</string>
     <string name="text_keyboard_layout_longpress_label_fallback_hint">Empty means using Label in popup</string>

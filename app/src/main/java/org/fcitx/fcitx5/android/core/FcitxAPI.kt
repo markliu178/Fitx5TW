@@ -42,6 +42,9 @@ interface FcitxAPI {
 
     val inputPanelCached: FcitxEvent.InputPanelEvent.Data
 
+    /** 组合文本的展示模式："No"、"ComposingText" 或 "CommitPreview"。 */
+    val preeditMode: String get() = "No"
+
     /** A visible preedit frame has presented this transient hint; stale IDs are ignored. */
     suspend fun statusHintPresented(hintId: Long, frameUptimeMillis: Long) {}
 
@@ -88,6 +91,29 @@ interface FcitxAPI {
         moveCursor(position)
         return true
     }
+
+    /**
+     * 移动组合文本里的编码光标，不要求 [preeditMode] 为 `ComposingText`。
+     *
+     * [position] 是按 [expectedPreedit] 的 Unicode 码点计数；只在会话与编码文本
+     * 仍与手势开始时一致时生效。
+     */
+    suspend fun moveCompositionCursor(
+        position: Int,
+        expectedSession: Long,
+        expectedPreedit: String
+    ): Boolean = moveCursorIfCurrent(position, expectedSession, expectedPreedit)
+
+    /**
+     * 计算 [first]..[last]（[expectedPreedit] 的 Unicode 码点区间）对应多少
+     * 原始编码字符，用于按退格次数删除。显示用的分隔符不计入。
+     */
+    suspend fun compositionRawCharacterCount(
+        first: Int,
+        last: Int,
+        expectedSession: Long,
+        expectedPreedit: String
+    ): Int? = null
 
     suspend fun availableIme(): Array<InputMethodEntry>
     suspend fun enabledIme(): Array<InputMethodEntry>

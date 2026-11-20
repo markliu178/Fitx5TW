@@ -1900,7 +1900,14 @@ abstract class BaseKeyboard(
             } else if (def is BackspaceKey) {
                 swipeEnabled = true
                 swipeRepeatEnabled = true
-                swipeThresholdX = selectionSwipeThreshold
+                swipeThresholdX = if (def.swipeLeftMode == BackspaceSwipeLeftMode.Inner) {
+                    dp(
+                        def.swipeLeftStepDp.coerceIn(
+                            MIN_SWIPE_LEFT_STEP_DP,
+                            MAX_SWIPE_LEFT_STEP_DP
+                        )
+                    )
+                } else selectionSwipeThreshold
                 swipeThresholdY = if (
                     def.swipe != null || def.swipeUp != null || def.swipeDown != null
                 ) inputSwipeThreshold else disabledSwipeThreshold

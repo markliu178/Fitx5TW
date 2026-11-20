@@ -182,6 +182,7 @@ class DirectRimeBackend(context: Context) : InputEngine {
     override val statusAreaActionsCached get() = publicationState.statusAreaActionsCached
     override val clientPreeditCached get() = publicationState.clientPreeditCached
     override val inputPanelCached get() = publicationState.inputPanelCached
+    override val preeditMode get() = config.preeditMode
 
     init {
         // Emission is independent of the native owner. A slow UI never drops commits
@@ -525,6 +526,19 @@ class DirectRimeBackend(context: Context) : InputEngine {
     override suspend fun moveCursor(position: Int) { onOwner { interactionTargets.moveCursor(position, inputSession, null) } }
     override suspend fun moveCursorIfCurrent(position: Int, expectedSession: Long, expectedPreedit: String) =
         onOwner { interactionTargets.moveCursor(position, expectedSession, expectedPreedit) }
+    override suspend fun moveCompositionCursor(
+        position: Int,
+        expectedSession: Long,
+        expectedPreedit: String
+    ) = onOwner { interactionTargets.moveCompositionCursor(position, expectedSession, expectedPreedit) }
+    override suspend fun compositionRawCharacterCount(
+        first: Int,
+        last: Int,
+        expectedSession: Long,
+        expectedPreedit: String
+    ) = onOwner {
+        interactionTargets.compositionRawCharacterCount(first, last, expectedSession, expectedPreedit)
+    }
     override suspend fun getCandidates(offset: Int, limit: Int): Array<CandidateWord> {
         val expected = snapshot ?: return emptyArray()
         // Snapshot revisions also advance on unhandled key-up. Only cancel a

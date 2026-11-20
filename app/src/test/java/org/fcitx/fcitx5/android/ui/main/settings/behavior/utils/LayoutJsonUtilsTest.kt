@@ -13,8 +13,10 @@ import kotlinx.serialization.json.jsonPrimitive
 import org.fcitx.fcitx5.android.input.keyboard.AlphabetKey
 import org.fcitx.fcitx5.android.input.keyboard.BackspaceKey
 import org.fcitx.fcitx5.android.input.keyboard.BackspaceSwipeLeftMode
+import org.fcitx.fcitx5.android.input.keyboard.DEFAULT_SWIPE_LEFT_STEP_DP
 import org.fcitx.fcitx5.android.input.keyboard.KeyDef
 import org.fcitx.fcitx5.android.input.keyboard.KeyRef
+import org.fcitx.fcitx5.android.input.keyboard.MIN_SWIPE_LEFT_STEP_DP
 import org.fcitx.fcitx5.android.input.keyboard.MacroAction
 import org.fcitx.fcitx5.android.input.keyboard.MacroKey
 import org.fcitx.fcitx5.android.input.keyboard.MacroStep
@@ -242,6 +244,7 @@ class LayoutJsonUtilsTest {
                 [{
                   "type": "BackspaceKey",
                   "swipeLeftMode": "inner",
+                  "swipeLeftStepDp": 6.5,
                   "swipeLeft": {"macro": [{"type": "tap", "keys": [{"fcitx": "Left"}]}]}
                 }]
                 """.trimIndent()
@@ -249,9 +252,11 @@ class LayoutJsonUtilsTest {
         )
         val def = LayoutJsonUtils.createKeyDef(parsed[0]) as BackspaceKey
         assertEquals(BackspaceSwipeLeftMode.Inner, def.swipeLeftMode)
+        assertEquals(6.5f, def.swipeLeftStepDp)
 
         val json = LayoutJsonUtils.keyDefToJson(def)
         assertEquals("inner", json["swipeLeftMode"])
+        assertEquals(6.5f, json["swipeLeftStepDp"])
         assertNull("旧左滑宏被忽略并清理", json["swipeLeft"])
 
         val clearJson = LayoutJsonUtils.keyDefToJson(
@@ -261,6 +266,25 @@ class LayoutJsonUtilsTest {
         )
         assertNull("默认清删不写字段", clearJson["swipeLeftMode"])
         assertNull(clearJson["swipeLeft"])
+        assertNull(clearJson["swipeLeftStepDp"])
+
+        val defaultInner = LayoutJsonUtils.createKeyDef(
+            LayoutJsonUtils.parseKeyJsonArray(
+                row("""[{"type": "BackspaceKey", "swipeLeftMode": "inner"}]""")
+            )[0]
+        ) as BackspaceKey
+        assertEquals(DEFAULT_SWIPE_LEFT_STEP_DP, defaultInner.swipeLeftStepDp)
+        assertNull(
+            "默认灵敏度不写字段",
+            LayoutJsonUtils.keyDefToJson(defaultInner)["swipeLeftStepDp"]
+        )
+
+        val clamped = LayoutJsonUtils.createKeyDef(
+            LayoutJsonUtils.parseKeyJsonArray(
+                row("""[{"type": "BackspaceKey", "swipeLeftMode": "inner", "swipeLeftStepDp": 1}]""")
+            )[0]
+        ) as BackspaceKey
+        assertEquals(MIN_SWIPE_LEFT_STEP_DP, clamped.swipeLeftStepDp)
     }
 
     /**

@@ -68,4 +68,46 @@ internal class DirectRimeInteractionTargets(private val owner: Owner) {
         }
         return owner.moveRawCursor(target)
     }
+
+    /**
+     * 移动组合文本的编码光标，面板预编辑（PreeditMode=No）下同样可用。
+     *
+     * 与 [moveCursor] 不同，这里不要求客户端预编辑存在，但要求当前快照的编码文本
+     * 与手势开始时一致，避免提交、切会话或换方案后误移动光标。
+     */
+    fun moveCompositionCursor(
+        position: Int,
+        expectedSession: Long,
+        expectedPreedit: String
+    ): Boolean {
+        val value = owner.snapshot ?: return false
+        if (!owner.started || owner.maintenance || !value.ready || value.generation != owner.inputSession ||
+            expectedSession != owner.inputSession || value.preedit != expectedPreedit) return false
+        val raw = owner.rawInput(value) ?: return false
+        val target = preeditCursorToRawBytes(
+            value.preedit, value.cursorUtf16, raw.text, raw.caretBytes, position
+        ) ?: return false
+        if (target == raw.caretBytes) return true
+        return owner.moveRawCursor(target)
+    }
+
+    /** 显示区间 [first]..[last] 对应的原始编码字符数，分隔符不计入。 */
+    fun compositionRawCharacterCount(
+        first: Int,
+        last: Int,
+        expectedSession: Long,
+        expectedPreedit: String
+    ): Int? {
+        val value = owner.snapshot ?: return null
+        if (!owner.started || owner.maintenance || !value.ready || value.generation != owner.inputSession ||
+            expectedSession != owner.inputSession || value.preedit != expectedPreedit) return null
+        val raw = owner.rawInput(value) ?: return null
+        val rawFirst = preeditCursorToRawBytes(
+            value.preedit, value.cursorUtf16, raw.text, raw.caretBytes, first
+        ) ?: return null
+        val rawLast = preeditCursorToRawBytes(
+            value.preedit, value.cursorUtf16, raw.text, raw.caretBytes, last
+        ) ?: return null
+        return rawCodePointCountBetween(raw.text, rawFirst, rawLast)
+    }
 }
