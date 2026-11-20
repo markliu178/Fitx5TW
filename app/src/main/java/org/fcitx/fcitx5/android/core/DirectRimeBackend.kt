@@ -645,7 +645,10 @@ class DirectRimeBackend(context: Context) : InputEngine {
         if (started) check(Native.deploy()) { "部署失败，请检查方案文件后重新部署" }
         else restartNative()
     }
-    private suspend fun synchronize() = maintain { check(Native.sync()) { "用户词典同步失败" } }
+    private suspend fun synchronize() = maintain {
+        config.normalizeActiveSyncDirectory()
+        check(Native.sync()) { "用户词典同步失败" }
+    }
 
     /**
      * Apply the selection already committed by [RimeEngineRepository] without restarting Android.

@@ -89,6 +89,28 @@ class DirectRimeConfigSafetyTest {
         assertEquals(config.current, DirectRimeConfig(context).apply { load() }.current)
     }
 
+    @Test fun renamingAProfileRewritesItsPersistedSyncDirectory() {
+        val config = DirectRimeConfig(context()).apply { load(); create("a") }
+        val staleSync = File(config.user!!, "sync").canonicalPath
+        File(config.user!!, "installation.yaml").writeText(
+            "installation_id: test\nsync_dir: $staleSync\n"
+        )
+        config.rename("a", "b")
+        val renamed = File(config.dataRoot, "b")
+        assertEquals(
+            "installation_id: test\nsync_dir: ${File(renamed, "sync").canonicalPath}\n",
+            File(renamed, "installation.yaml").readText()
+        )
+    }
+
+    @Test fun staleSyncOnlyDirectoryIsRemovedInsteadOfBecomingAProfile() {
+        val config = DirectRimeConfig(context()).apply { load(); create("b") }
+        val residue = File(config.dataRoot, "a/sync").apply { mkdirs() }
+        File(residue, "userdb.txt").writeText("stale")
+        assertEquals(listOf("b"), config.directoryState().findByName("Profiles")!!.value.lines())
+        assertFalse(File(config.dataRoot, "a").exists())
+    }
+
     @Test fun failedDeleteRestoresTheOriginalDirectory() {
         val context = context()
         val config = DirectRimeConfig(context).apply { load(); create("rime"); create("second") }

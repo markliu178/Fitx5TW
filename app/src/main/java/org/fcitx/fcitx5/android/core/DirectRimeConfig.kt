@@ -107,16 +107,31 @@ internal class DirectRimeConfig(private val context: Context) {
         profiles.entries.removeAll { (name, file) ->
             isInternal(name, file) && runCatching { !file.exists() }.getOrDefault(false)
         }
+        // A stale sync_dir used to recreate the old profile folder as rime/<old>/sync. That
+        // residue was never a scheme, so drop it instead of registering it again.
+        profiles.entries.removeAll { (name, file) -> isInternal(name, file) && removeSyncResidue(file) }
         if (current != null && current !in profiles) current = profiles.keys.firstOrNull()
         val known = profiles.values.map { it.canonicalFile }
         dataRoot.listFiles().orEmpty().forEach { file ->
             val name = file.name
             if (!file.isDirectory || name.startsWith(".") || name in profiles ||
                 !RimeDataDirectoryState.isValidName(name)) return@forEach
+            if (removeSyncResidue(file)) return@forEach
             val canonical = file.canonicalFile
             if (known.none { RimeProfileRestorePlan.overlap(it, canonical) }) profiles[name] = file
         }
         if (current == null) current = profiles.keys.firstOrNull()
+    }
+
+    /**
+     * A directory that only holds a sync folder is left over from a renamed profile. Deployment
+     * always writes other files, so it cannot be a usable scheme; delete it and ignore it.
+     */
+    private fun removeSyncResidue(file: File): Boolean {
+        val entries = runCatching { file.listFiles()?.toList() }.getOrNull() ?: return false
+        if (entries.size != 1 || entries[0].name != "sync" || !entries[0].isDirectory) return false
+        runCatching { file.deleteRecursively() }
+        return true
     }
 
     private fun isInternal(name: String, file: File): Boolean = runCatching {
@@ -235,6 +250,11 @@ internal class DirectRimeConfig(private val context: Context) {
         current = name
     }
 
+    /** Sync must never follow an absolute sync_dir that a rename made stale. */
+    fun normalizeActiveSyncDirectory() {
+        user?.let(::normalizeSyncDirectory)
+    }
+
     fun rename(name: String, newName: String) {
         require(name in profiles && RimeDataDirectoryState.isValidName(newName) && newName !in profiles) { "目录名称无效或已存在" }
         val old = profiles.getValue(name)
@@ -256,6 +276,9 @@ internal class DirectRimeConfig(private val context: Context) {
         }
         publishDirectories(next, selected)
         if (internal) directoryMoves.recover()
+        // Renaming changes the profile path but librime keeps the old absolute sync_dir in
+        // installation.yaml, so the next dictionary sync would recreate the old directory.
+        normalizeSyncDirectory(target)
     }
 
     fun delete(name: String) {
