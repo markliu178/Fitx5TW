@@ -141,7 +141,6 @@
     <string name="popup_on_key_press">キー押下時にポップアップする</string>
     <string name="disable_animation">アニメーションを無効にする</string>
     <string name="import_from_file">ファイルからインポート…</string>
-    <string name="duplicate_builtin_theme">ビルトインテーマを複製…</string>
     <string name="exception_logcat_created">Logcatプロセスはすでに作成されています</string>
     <string name="exception_theme_filename">%1$s のファイル拡張子はテーマを示していません</string>
     <string name="exception_libime_dict_filename">%1$s のファイル拡張子はlibime辞書を示していません</string>

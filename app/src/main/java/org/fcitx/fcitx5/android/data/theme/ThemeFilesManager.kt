@@ -289,8 +289,8 @@ object ThemeFilesManager {
                 }
                 val canonical = themeFile(theme) // Also validates the name and destination boundary.
                 if (canonical != source) {
-                    // Older bundled presets used slugs while their JSON names were display
-                    // names, e.g. sage-journey.json / "Sage Journey". Adopt the canonical
+                    // Older theme files used slugs while their JSON names were display
+                    // names, e.g. legacy-slug.json / "Display Name". Adopt the canonical
                     // filename once so subsequent save/delete operations address this file.
                     // Never overwrite a separately saved theme with that logical name.
                     if (canonical.exists()) {
@@ -680,8 +680,6 @@ object ThemeFilesManager {
                 )
                 val importedThemeName = importedName ?: ThemeManager.nonActiveImportName(decoded.name)
                 ThemeStoragePaths.requireName(importedThemeName)
-                if (ThemeManager.BuiltinThemes.find { it.name == importedThemeName } != null)
-                    errorRuntime(R.string.exception_theme_name_clash)
                 val oldTheme = ThemeManager.getTheme(importedThemeName) as? Theme.Custom
                 val newCreated = oldTheme == null
                 val theme = decoded.copy(name = importedThemeName)

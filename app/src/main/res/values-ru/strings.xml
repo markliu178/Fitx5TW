@@ -146,7 +146,6 @@
     <string name="popup_on_key_press">Всплывающее окно при нажатии клавиши</string>
     <string name="disable_animation">Отключить анимацию</string>
     <string name="import_from_file">Импорт из файла…</string>
-    <string name="duplicate_builtin_theme">Дублировать встроенную тему…</string>
     <string name="exception_logcat_created">Процесс Logcat уже создан</string>
     <string name="exception_theme_filename">Расширение имени файла %1$s не указывает на тему</string>
     <string name="exception_libime_dict_filename">Расширение имени файла %1$s не указывает на словарь libime</string>

@@ -511,7 +511,6 @@
     <string name="disable_addon_warn_name">Al desactivar %1$s tambien se:</string>
     <string name="disable_addon_warn_optdep">Se desactivaran algunas funciones en %1$s</string>
     <string name="disable_addon_warn_title">Desactivar complemento</string>
-    <string name="duplicate_builtin_theme">Duplicar tema integrado…</string>
     <string name="edit_fontset">Configuración de fuentes</string>
     <string name="edited_x">Se edito %1$s</string>
     <string name="editor_info_inspector">Inspector de EditorInfo</string>

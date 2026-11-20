@@ -31,7 +31,6 @@ import org.fcitx.fcitx5.android.utils.parcelable
 import org.fcitx.fcitx5.android.utils.queryFileName
 import org.fcitx.fcitx5.android.utils.toast
 import java.io.ByteArrayInputStream
-import java.util.UUID
 
 class ThemeListFragment : Fragment() {
 
@@ -205,7 +204,6 @@ class ThemeListFragment : Fragment() {
         val actions = arrayOf(
             getString(R.string.choose_image),
             getString(R.string.import_from_file),
-            getString(R.string.duplicate_builtin_theme),
             getString(R.string.theme_share_active),
             getString(R.string.theme_import_qr_scan),
             getString(R.string.theme_import_qr_image)
@@ -217,36 +215,9 @@ class ThemeListFragment : Fragment() {
                 when (i) {
                     0 -> imageLauncher.launch(null)
                     1 -> importLauncher.launch("application/zip")
-                    2 -> {
-                        val view = ResponsiveThemeListView(ctx).apply {
-                            // force AlertDialog's customPanel to grow
-                            minimumHeight = Int.MAX_VALUE
-                        }
-                        val dialog = MaterialAlertDialogBuilder(ctx)
-                            .setTitle(getString(R.string.duplicate_builtin_theme).removeSuffix("…"))
-                            .setNegativeButton(android.R.string.cancel, null)
-                            .setView(view)
-                            .create()
-                        val duplicableThemes =
-                            ThemeManager.BuiltinThemes + listOf(ThemeMonet.getLight(), ThemeMonet.getDark())
-                        view.adapter = object :
-                            SimpleThemeListAdapter<Theme>(duplicableThemes) {
-                            override fun onClick(theme: Theme) {
-                                val newTheme =
-                                    when (theme) {
-                                        is Theme.Builtin -> theme.deriveCustomNoBackground(UUID.randomUUID().toString())
-                                        is Theme.Monet -> theme.toCustom().copy(name = UUID.randomUUID().toString())
-                                        else -> return
-                                    }
-                                ThemeManager.saveTheme(newTheme)
-                                dialog.dismiss()
-                            }
-                        }
-                        dialog.show()
-                    }
-                    3 -> shareImportManager.shareActiveThemeFromMenu()
-                    4 -> shareImportManager.importThemeByQrScan()
-                    5 -> shareImportManager.importThemeByQrImage()
+                    2 -> shareImportManager.shareActiveThemeFromMenu()
+                    3 -> shareImportManager.importThemeByQrScan()
+                    4 -> shareImportManager.importThemeByQrImage()
                 }
             }
             .show()

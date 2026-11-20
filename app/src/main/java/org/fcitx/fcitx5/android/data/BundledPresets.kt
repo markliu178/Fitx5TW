@@ -18,14 +18,13 @@ import timber.log.Timber
 import java.io.File
 
 /**
- * 内置资源（键盘布局 / 主题 / 图标主题 / 弹出定义）安装器。
+ * 内置资源（键盘布局 / 图标主题 / 弹出定义）安装器。
  *
  * 这些资源随 APK 打包在 `assets/bundled/` 下，首次启动时解包到应用外部
  * 文件目录的对应位置，实现"开箱即用"：
  *
  * - `bundled/keyboard_layouts/TextKeyboardLayout.<名称>.json` → `config/`，并注册对应 profile
  * - `bundled/keyboard_layouts/PopupPreset.json`               → 不落盘，作为运行时默认弹出定义
- * - `bundled/themes/<主题名>.json`                            → `theme/`（自定义主题目录）
  * - `bundled/icon_themes/<主题名>.json`                       → `icon_themes/`
  *
  * 安装幂等且不覆盖：每个资源以"asset 路径 + 字节数"为版本标记记录在
@@ -80,21 +79,6 @@ object BundledPresets {
         "bundled/icon_themes/谷歌.json" to 68073
     )
 
-    private val themeAssets = listOf(
-        "森林集·write.json",
-        "长日将烬.json",
-        "braun-minimal-dark.json",
-        "braun-minimal-light.json",
-        "Caramel Dawn.json",
-        "Caramel Ember.json",
-        "github-dark-dim.json",
-        "industrial-orange-light.json",
-        "isGboard.json",
-        "sage-journey.json",
-        "WeChat Dark.json",
-        "wechat-light.json"
-    )
-
     private val iconThemeAssets = listOf(
         "谷歌.json",
         "无题.json",
@@ -133,12 +117,6 @@ object BundledPresets {
         }
         if (installedCount > 0) {
             ensureLayoutProfile()
-        }
-
-        // 主题：安装到 theme/（与用户自定义主题同目录）
-        val themeDir = File(extDir, "theme").apply { mkdirs() }
-        themeAssets.forEach { name ->
-            installAsset("bundled/themes/$name", File(themeDir, name)).let { installedCount += it }
         }
 
         // 图标主题：安装到 icon_themes/

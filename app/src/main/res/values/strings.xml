@@ -208,7 +208,6 @@
     <string name="popup_on_key_press">Popup on key press</string>
     <string name="disable_animation">Disable animation</string>
     <string name="import_from_file">Import from file…</string>
-    <string name="duplicate_builtin_theme">Duplicate builtin theme…</string>
     <string name="exception_logcat_created">Logcat process is already created</string>
     <string name="exception_theme_filename">The filename extension of %1$s does not indicate a theme</string>
     <string name="exception_libime_dict_filename">The filename extension of %1$s does not indicate a libime dict</string>
