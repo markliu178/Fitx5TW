@@ -679,6 +679,7 @@
     <string name="text_keyboard_layout_key_type_format">%1$s / %2$s</string>
     <string name="text_keyboard_layout_key_type_alphabet">字母键</string>
     <string name="text_keyboard_layout_key_type_caps">大小写键</string>
+    <string name="text_keyboard_layout_key_type_caps_short">左Shift</string>
     <string name="text_keyboard_layout_key_type_layout_switch">切层键</string>
     <string name="text_keyboard_layout_key_type_comma">逗号键</string>
     <string name="text_keyboard_layout_key_type_language">中英文键</string>
@@ -778,8 +779,9 @@
     <string name="text_keyboard_layout_macro_swipe_left_event">左划事件</string>
     <string name="text_keyboard_layout_macro_swipe_right_event">右划事件</string>
     <string name="text_keyboard_layout_backspace_swipe_left_clear">清删</string>
-    <string name="text_keyboard_layout_backspace_swipe_left_inner">内删</string>
-    <string name="text_keyboard_layout_backspace_swipe_left_step_dp">内删每字滑动距离（dp，越小越快）</string>
+    <string name="text_keyboard_layout_backspace_swipe_left_inner">滑删</string>
+    <string name="text_keyboard_layout_backspace_swipe_left_step_dp">删动速度</string>
+    <string name="text_keyboard_layout_space_swipe_step_dp">左右滑动速度</string>
     <string name="text_keyboard_layout_macro_longpress_event">长按事件</string>
     <string name="text_keyboard_layout_longpress_label">长按标签</string>
     <string name="text_keyboard_layout_longpress_label_fallback_hint">留空则在弹出菜单中使用“标签”</string>

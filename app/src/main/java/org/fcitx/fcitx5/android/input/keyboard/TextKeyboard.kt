@@ -18,6 +18,7 @@ import java.lang.ref.WeakReference
 import java.util.WeakHashMap
 import org.fcitx.fcitx5.android.R
 import org.fcitx.fcitx5.android.core.DirectRimeInputMethodEntryCache
+import org.fcitx.fcitx5.android.core.FcitxKeyMapping
 import org.fcitx.fcitx5.android.core.InputMethodEntry
 import org.fcitx.fcitx5.android.core.KeyState
 import org.fcitx.fcitx5.android.core.KeyStates
@@ -1390,6 +1391,8 @@ class TextKeyboard private constructor(
         return capsState != CapsState.None || isSimulatedCapsLockOn()
     }
 
+    override fun isShiftActive(): Boolean = capsState != CapsState.None
+
     private fun transformAlphabet(c: String): String {
         return when (capsState) {
             CapsState.None -> c.lowercase()
@@ -1669,6 +1672,18 @@ class TextKeyboard private constructor(
                     // MacroKey tap Caps_Lock opened lock state: single tap on CapsKey should send Caps_Lock again.
                 } else {
                     switchCapsState(action.lock)
+                }
+            }
+            is KeyAction.SymAction -> {
+                // 点击空格归位 Shift：空格走 SymAction（不经过 FcitxKeyAction 的大写转换分支），
+                // 需单独消费 Once。滑动产生的方向键（Left/Right/Up/Down）不是空格，不会命中，
+                // 因此保持「滑动锁定、点击归位」：滑动不消费 Shift，点击空格才归位。Lock 不在
+                // 此归位（锁定态下打字/空格都保持大写），与 FcitxKeyAction 分支一致。
+                if (source == KeyActionListener.Source.Keyboard &&
+                    action.sym.sym == FcitxKeyMapping.FcitxKey_space &&
+                    capsState == CapsState.Once
+                ) {
+                    switchCapsState()
                 }
             }
             else -> {}

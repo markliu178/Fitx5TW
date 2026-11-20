@@ -1112,8 +1112,12 @@ object LayoutJsonUtils {
                 keyDef.label?.takeIf { it.isNotBlank() }?.let { json["label"] = it }
                 keyDef.swipeLabel?.let { json["swipeLabel"] = it }
                 keyDef.swipe?.let { json["swipe"] = macroActionToJson(it) }
-                keyDef.swipeLeft?.let { json["swipeLeft"] = macroActionToJson(it) }
-                keyDef.swipeRight?.let { json["swipeRight"] = macroActionToJson(it) }
+                // 左右滑动定制已移除：swipeLeft/swipeRight 不再写出（旧布局中的字段解析时忽略）。
+                if (keyDef.swipeLeftStepDp != DEFAULT_SPACE_SWIPE_STEP_DP) {
+                    json["swipeLeftStepDp"] = keyDef.swipeLeftStepDp
+                } else {
+                    json.remove("swipeLeftStepDp")
+                }
             }
             is SymbolKey -> {
                 json["label"] = keyDef.symbol
@@ -1127,13 +1131,16 @@ object LayoutJsonUtils {
             is BackspaceKey -> {
                 json["weight"] = appearance.percentWidth
                 putDirectionalSwipeFieldsForKey(json, keyDef)
+                // swipeLeftMode 仅在滑删（Inner）时写出；清删保持默认（不写字段）。
                 if (keyDef.swipeLeftMode == BackspaceSwipeLeftMode.Inner) {
                     json["swipeLeftMode"] = keyDef.swipeLeftMode.value
-                    if (keyDef.swipeLeftStepDp != DEFAULT_SWIPE_LEFT_STEP_DP) {
-                        json["swipeLeftStepDp"] = keyDef.swipeLeftStepDp
-                    }
                 } else {
                     json.remove("swipeLeftMode")
+                }
+                // 删动速度对清删与滑删都生效，两种模式下非默认值都写出。
+                if (keyDef.swipeLeftStepDp != DEFAULT_SWIPE_LEFT_STEP_DP) {
+                    json["swipeLeftStepDp"] = keyDef.swipeLeftStepDp
+                } else {
                     json.remove("swipeLeftStepDp")
                 }
             }
@@ -1406,10 +1413,12 @@ object LayoutJsonUtils {
             "SpaceKey" -> SpaceKey(
                 percentWidth = key.weight ?: 0f,
                 swipe = key.swipe,
-                swipeLeft = key.swipeLeft,
-                swipeRight = key.swipeRight,
                 swipeLabel = key.swipeLabel,
                 label = key.label?.takeIf { it.isNotBlank() },
+                // 左右滑动定制已移除：旧布局的 swipeLeft/swipeRight 字段忽略，横向阈值改由
+                // 「左右滑动速度」（swipeLeftStepDp）控制，默认 16dp。
+                swipeLeftStepDp = (key.swipeLeftStepDp ?: DEFAULT_SPACE_SWIPE_STEP_DP)
+                    .coerceIn(MIN_SWIPE_LEFT_STEP_DP, MAX_SWIPE_LEFT_STEP_DP),
                 textColor = key.textColor,
                 textColorMonet = key.textColorMonet,
                 backgroundColor = key.backgroundColor,

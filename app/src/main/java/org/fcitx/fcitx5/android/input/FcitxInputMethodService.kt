@@ -337,6 +337,15 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
     private val selection = CursorTracker()
 
     /**
+     * 空格滑动 + Shift 选中文本时的选区锚点（固定端）。
+     *
+     * 仅在 [handleArrowKey] 的 `selecting` 分支使用：以锚点为不动端，另一端随方向键移动来
+     * 扩展/收缩选区，避免「先左滑再右滑」时选区反向错乱。普通（非选）方向移动会清空锚点；
+     * 光标被外部（点击等）移走后下一次选字会因锚点不再落在选区边界上而自动重建。
+     */
+    private var arrowSelectionAnchor: Int? = null
+
+    /**
      * 万象退格保护的 Android 应用层实现（持按住序列，直到手指抬起）。
      *
      * 背景见 [BackspaceBoundaryGuard] 类文档：Lua 侧的
@@ -894,6 +903,8 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
                     // 退格保护：这里只处理"退格到达"和"其它按键结束退格按住序列"。
                     // 退格删码自身产生的 preedit 变化由 onComposingStateChanged 的
                     // 边沿检测处理，不在这里复位。
+                    // 空格滑动 + Shift 选中：方向键带 Shift 修饰时走选区扩展分支。
+                    val selecting = it.states.shift
                     when (it.sym.sym) {
                         FcitxKeyMapping.FcitxKey_BackSpace -> handleBackspaceKey()
                         FcitxKeyMapping.FcitxKey_Return -> {
@@ -902,19 +913,19 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
                         }
                         FcitxKeyMapping.FcitxKey_Left -> {
                             backspaceBoundaryGuard.onUserKeyAction()
-                            handleArrowKey(KeyEvent.KEYCODE_DPAD_LEFT)
+                            handleArrowKey(KeyEvent.KEYCODE_DPAD_LEFT, selecting)
                         }
                         FcitxKeyMapping.FcitxKey_Right -> {
                             backspaceBoundaryGuard.onUserKeyAction()
-                            handleArrowKey(KeyEvent.KEYCODE_DPAD_RIGHT)
+                            handleArrowKey(KeyEvent.KEYCODE_DPAD_RIGHT, selecting)
                         }
                         FcitxKeyMapping.FcitxKey_Up -> {
                             backspaceBoundaryGuard.onUserKeyAction()
-                            handleArrowKey(KeyEvent.KEYCODE_DPAD_UP)
+                            handleArrowKey(KeyEvent.KEYCODE_DPAD_UP, selecting)
                         }
                         FcitxKeyMapping.FcitxKey_Down -> {
                             backspaceBoundaryGuard.onUserKeyAction()
-                            handleArrowKey(KeyEvent.KEYCODE_DPAD_DOWN)
+                            handleArrowKey(KeyEvent.KEYCODE_DPAD_DOWN, selecting)
                         }
                         else -> if (it.unicode > 0 && !it.up) {
                             backspaceBoundaryGuard.onCommit()
@@ -1107,10 +1118,14 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
         }
     }
 
-    private fun handleArrowKey(keyCode: Int) {
-        if (jsAppInputConnection != null) { sendDownUpKeyEvents(keyCode); return }
+    private fun handleArrowKey(keyCode: Int, selecting: Boolean = false) {
+        fun fallback() {
+            if (selecting) sendCombinationKeyEvents(keyCode, shift = true)
+            else sendDownUpKeyEvents(keyCode)
+        }
+        if (jsAppInputConnection != null) { fallback(); return }
         val ic = currentInputConnection ?: run {
-            sendDownUpKeyEvents(keyCode)
+            fallback()
             return
         }
         val editorInfo = currentInputEditorInfo
@@ -1119,7 +1134,7 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
         if (type == InputType.TYPE_NULL ||
             type == InputType.TYPE_CLASS_TEXT && variation == InputType.TYPE_TEXT_VARIATION_URI
         ) {
-            sendDownUpKeyEvents(keyCode)
+            fallback()
             return
         }
         when (keyCode) {
@@ -1132,31 +1147,61 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
                 val (start, end) = selection.latest
                 if (start < 0 || end < 0) {
                     // 编辑器尚未上报光标位置，无法计算目标，退回键事件
-                    sendDownUpKeyEvents(keyCode)
+                    fallback()
                     return
                 }
-                // 有选区时折叠到选区边界，无选区时移动一格
-                val offset = if (start == end) 1 else 0
-                val target =
-                    if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) start - offset else end + offset
-                if (target >= 0) {
-                    // predict 让同一次手势内的连续按键立即读到最新预测位置，
-                    // 否则 onUpdateSelection 回报前会重复计算同一目标导致丢步
-                    selection.predict(target)
-                    ic.setSelection(target, target)
+                if (selecting) {
+                    // Shift + 方向：以锚点为固定端，另一端随方向移动扩展/收缩选区。
+                    var anchor = arrowSelectionAnchor
+                    // 锚点失效（不在选区边界上，或折叠光标已被外部移走）则重建。
+                    if (anchor != null && anchor != start && anchor != end) anchor = null
+                    if (anchor != null && start == end && anchor != start) anchor = null
+                    if (anchor == null) {
+                        anchor = if (start == end) start
+                        else if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) end else start
+                    }
+                    arrowSelectionAnchor = anchor
+                    // 活动端：非锚点的那一端；折叠时两端重合于锚点。
+                    val caret = when {
+                        start == end -> anchor
+                        anchor == start -> end
+                        else -> start
+                    }
+                    val moved = if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) caret - 1 else caret + 1
+                    // 左移越过文本起点则停在边界不动（与非选分支一致），不产生越界预测。
+                    if (!(keyCode == KeyEvent.KEYCODE_DPAD_LEFT && moved < 0)) {
+                        val newStart = minOf(anchor, moved)
+                        val newEnd = maxOf(anchor, moved)
+                        selection.predict(newStart, newEnd)
+                        ic.setSelection(newStart, newEnd)
+                    }
+                } else {
+                    arrowSelectionAnchor = null
+                    // 有选区时折叠到选区边界，无选区时移动一格
+                    val offset = if (start == end) 1 else 0
+                    val target =
+                        if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) start - offset else end + offset
+                    if (target >= 0) {
+                        // predict 让同一次手势内的连续按键立即读到最新预测位置，
+                        // 否则 onUpdateSelection 回报前会重复计算同一目标导致丢步
+                        selection.predict(target)
+                        ic.setSelection(target, target)
+                    }
+                    // target < 0：光标已在文本最前端，保持不动
                 }
-                // target < 0：光标已在文本最前端，保持不动
             }
             KeyEvent.KEYCODE_DPAD_UP -> {
                 // 偏移 0 一定在第一行：此时 DPAD_UP 会被编辑框交给焦点导航导致失焦，直接跳过。
                 // 以编辑器的真实文本为准（跟踪值可能在快速连击时滞后）。
                 if (ic.getTextBeforeCursor(1, 0)?.isEmpty() == true) return
-                sendDownUpKeyEvents(keyCode)
+                if (selecting) sendCombinationKeyEvents(keyCode, shift = true)
+                else sendDownUpKeyEvents(keyCode)
             }
             KeyEvent.KEYCODE_DPAD_DOWN -> {
                 // 文本末尾一定在最后一行：此时 DPAD_DOWN 同样会逃逸编辑框，跳过
                 if (ic.getTextAfterCursor(1, 0)?.isEmpty() == true) return
-                sendDownUpKeyEvents(keyCode)
+                if (selecting) sendCombinationKeyEvents(keyCode, shift = true)
+                else sendDownUpKeyEvents(keyCode)
             }
         }
     }

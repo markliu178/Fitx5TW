@@ -335,6 +335,9 @@ const val DEFAULT_SWIPE_LEFT_STEP_DP = 10f
 const val MIN_SWIPE_LEFT_STEP_DP = 2f
 const val MAX_SWIPE_LEFT_STEP_DP = 48f
 
+/** 空格键光标模式横向每移动一格所需滑动距离（dp）的默认值，与原先 spaceCursorSwipeThreshold 一致。 */
+const val DEFAULT_SPACE_SWIPE_STEP_DP = 16f
+
 enum class BackspaceSwipeLeftMode(val value: String) {
     /** 清删：按下并左滑，按滑动距离删除正文；合成中则取消整段编码。 */
     Clear("clear"),
@@ -520,10 +523,10 @@ class SpaceKey(
     shadowColor: Int? = null,
     shadowColorMonet: String? = null,
     val swipe: MacroAction? = null,
-    val swipeLeft: MacroAction? = null,
-    val swipeRight: MacroAction? = null,
     val swipeLabel: String? = null,
-    val label: String? = null
+    val label: String? = null,
+    /** 光标模式下横向每移动一格所需滑动距离（dp）；越小越灵敏。仅「划动空格移动光标」开启时生效。 */
+    val swipeLeftStepDp: Float = DEFAULT_SPACE_SWIPE_STEP_DP
 ) : KeyDef(
     if (swipeLabel.isNullOrEmpty()) {
         Appearance.Text(
