@@ -269,7 +269,12 @@ internal class DirectRimeEngineOperations(
         if (activeSelection.kind != RimeEngineKind.BUILTIN) {
             armExternalOperationWatchdog(EXTERNAL_START_TIMEOUT_MS)
         }
-        val userDir = config.user ?: error("没有可用的 Rime 方案目录")
+        val userDir = config.user
+        if (userDir == null) {
+            // Every profile was deleted: stay idle until one is created or imported.
+            owner.started = false
+            return
+        }
         Native.start(shared().absolutePath, userDir.absolutePath, versionName, fullCheck = true,
             minLogLevel = DirectRimeEngineLog.minLevel())
         owner.started = true

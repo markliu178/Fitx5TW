@@ -2102,7 +2102,7 @@ class KeyEditorForm(
             val stepMap = step as? Map<*, *>
             val type = stepMap?.get("type") as? String ?: return@mapNotNull null
             when (type) {
-                "tap", "down", "up" -> {
+                "tap", "combo", "down", "up" -> {
                     val keys = stepMap["keys"] as? List<*>
                     val keysStr = keys?.mapNotNull { key ->
                         (key as? Map<*, *>)?.let {

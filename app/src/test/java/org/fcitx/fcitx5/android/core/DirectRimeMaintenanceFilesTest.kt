@@ -51,10 +51,10 @@ class DirectRimeMaintenanceFilesTest {
         payloadText: String? = "schema_list:\n  - schema: wanxiang\n",
     ) {
         val job = File(context.noBackupFilesDir, "wanxiang-settings/$id").apply { mkdirs() }
-        val original = File(config.user, "default.yaml").apply { writeText("menu: {page_size: 5}\n") }
+        val original = File(config.user!!, "default.yaml").apply { writeText("menu: {page_size: 5}\n") }
         val expected = mapOf("default.yaml" to WanxiangAdvancedFiles.hash(original))
         File(job, "plan.json").writeText(Json.encodeToString(
-            WanxiangAdvancedFiles.Plan(config.current, config.user.canonicalPath, expected),
+            WanxiangAdvancedFiles.Plan(config.current!!, config.user!!.canonicalPath, expected),
         ))
         payloadText?.let { text ->
             File(job, "payload/default.yaml").apply { parentFile!!.mkdirs(); writeText(text) }
@@ -65,7 +65,7 @@ class DirectRimeMaintenanceFilesTest {
         val job = RimeSchemeUpdates.directory(context, id).apply { mkdirs() }
         val task = RimeSchemeTask(name = "fixture", source = "/scheme.zip", fileName = "scheme.zip")
         File(job, "request.json").writeText(Json.encodeToString(
-            RimeSchemeRequest(WanxiangTarget(config.current, config.user.canonicalPath), listOf(task)),
+            RimeSchemeRequest(WanxiangTarget(config.current!!, config.user!!.canonicalPath), listOf(task)),
         ))
         File(job, "prepared").writeText("1")
         File(job, "payload").mkdirs()
@@ -81,7 +81,7 @@ class DirectRimeMaintenanceFilesTest {
 
     @Test fun threePreparationPathsReturnTheCapturedProfileAndExactInstallPolicies() {
         val context = context()
-        val config = DirectRimeConfig(context).apply { load() }
+        val config = DirectRimeConfig(context).apply { load(); create("rime") }
 
         val settingsId = UUID.randomUUID()
         settingsJob(context, config, settingsId)
@@ -94,8 +94,8 @@ class DirectRimeMaintenanceFilesTest {
         val wanxiangId = UUID.randomUUID()
         wanxiangJob(context, wanxiangId, withFile = true)
         val wanxiang = DirectRimeMaintenanceFiles.prepareWanxiangUpdate(context, config, RawConfig(arrayOf(
-            RawConfig("Profile", config.current),
-            RawConfig("Path", config.user.canonicalPath),
+            RawConfig("Profile", config.current!!),
+            RawConfig("Path", config.user!!.canonicalPath),
             RawConfig("RequestId", wanxiangId.toString()),
         )))
 
@@ -111,7 +111,7 @@ class DirectRimeMaintenanceFilesTest {
 
     @Test fun emptyPreparedUpdatesKeepTheExistingNoOpBoundaries() {
         val context = context()
-        val config = DirectRimeConfig(context).apply { load() }
+        val config = DirectRimeConfig(context).apply { load(); create("rime") }
 
         val settingsId = UUID.randomUUID()
         settingsJob(context, config, settingsId, payloadText = null)
@@ -126,8 +126,8 @@ class DirectRimeMaintenanceFilesTest {
         val wanxiangId = UUID.randomUUID()
         wanxiangJob(context, wanxiangId, withFile = false)
         assertNull(DirectRimeMaintenanceFiles.prepareWanxiangUpdate(context, config, RawConfig(arrayOf(
-            RawConfig("Profile", config.current),
-            RawConfig("Path", config.user.canonicalPath),
+            RawConfig("Profile", config.current!!),
+            RawConfig("Path", config.user!!.canonicalPath),
             RawConfig("RequestId", wanxiangId.toString()),
         ))))
     }

@@ -32,9 +32,9 @@ class DirectRimeConfigSafetyTest {
     }
 
     @Test fun creatingAnOverlappingProfileRejectsBothParentsAndChildren() {
-        val config = DirectRimeConfig(context()).apply { load() }
-        assertTrue(runCatching { config.create("nested", File(config.user, "nested").path) }.isFailure)
-        assertTrue(runCatching { config.create("parent", config.user.parent!!) }.isFailure)
+        val config = DirectRimeConfig(context()).apply { load(); create("rime") }
+        assertTrue(runCatching { config.create("nested", File(config.user!!, "nested").path) }.isFailure)
+        assertTrue(runCatching { config.create("parent", config.user!!.parent!!) }.isFailure)
         assertEquals(listOf("rime"), config.directoryState().findByName("Profiles")!!.value.lines())
     }
 
@@ -61,7 +61,7 @@ class DirectRimeConfigSafetyTest {
 
     @Test fun failedCreateDoesNotPublishAProfileOrLeaveAnEmptyDirectory() {
         val context = context()
-        val config = DirectRimeConfig(context).apply { load(); saveDirectories() }
+        val config = DirectRimeConfig(context).apply { load(); create("rime"); saveDirectories() }
         blockSave(config)
         assertTrue(runCatching { config.create("failed") }.isFailure)
         assertFalse(config.directoryState().findByName("Profiles")!!.value.lines().contains("failed"))
@@ -71,7 +71,7 @@ class DirectRimeConfigSafetyTest {
 
     @Test fun failedSwitchRetainsThePreviousSelectionInMemoryAndOnDisk() {
         val context = context()
-        val config = DirectRimeConfig(context).apply { load(); create("second") }
+        val config = DirectRimeConfig(context).apply { load(); create("rime"); create("second") }
         blockSave(config)
         assertTrue(runCatching { config.switch("second") }.isFailure)
         assertEquals("rime", config.current)
@@ -80,18 +80,18 @@ class DirectRimeConfigSafetyTest {
 
     @Test fun failedRenameRestoresFilesAndRegistration() {
         val context = context()
-        val config = DirectRimeConfig(context).apply { load(); create("second") }
-        File(config.user, "personal.dict.yaml").writeText("personal data")
+        val config = DirectRimeConfig(context).apply { load(); create("rime"); create("second") }
+        File(config.user!!, "personal.dict.yaml").writeText("personal data")
         blockSave(config)
         assertTrue(runCatching { config.rename("rime", "renamed") }.isFailure)
-        assertEquals("personal data", File(config.user, "personal.dict.yaml").readText())
+        assertEquals("personal data", File(config.user!!, "personal.dict.yaml").readText())
         assertFalse(File(config.dataRoot, "renamed").exists())
         assertEquals(config.current, DirectRimeConfig(context).apply { load() }.current)
     }
 
     @Test fun failedDeleteRestoresTheOriginalDirectory() {
         val context = context()
-        val config = DirectRimeConfig(context).apply { load(); create("second") }
+        val config = DirectRimeConfig(context).apply { load(); create("rime"); create("second") }
         File(config.dataRoot, "second/personal.dict.yaml").writeText("keep")
         blockSave(config)
         assertTrue(runCatching { config.delete("second") }.isFailure)
@@ -110,13 +110,13 @@ class DirectRimeConfigSafetyTest {
     }
 
     @Test fun updatingACapturedDirectoryIsRejectedAfterSwitchingProfiles() {
-        val config = DirectRimeConfig(context()).apply { load() }
-        val captured = config.user.canonicalPath
+        val config = DirectRimeConfig(context()).apply { load(); create("rime") }
+        val captured = config.user!!.canonicalPath
         config.requireUpdateTarget("rime", captured)
         config.create("other")
         config.switch("other")
         assertTrue(runCatching { config.requireUpdateTarget("rime", captured) }.isFailure)
         assertTrue(runCatching { config.requireUpdateTarget("other", captured) }.isFailure)
-        config.requireUpdateTarget("other", config.user.canonicalPath)
+        config.requireUpdateTarget("other", config.user!!.canonicalPath)
     }
 }

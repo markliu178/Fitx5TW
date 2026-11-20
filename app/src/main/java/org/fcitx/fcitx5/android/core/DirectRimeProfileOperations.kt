@@ -36,7 +36,10 @@ internal class DirectRimeProfileOperations(
                     }
                     DirectRimeManagementCommands.ProfileAction.Delete -> {
                         repository().requireProfileUnreferenced(name)
-                        config.delete(name)
+                        val active = name == config.current
+                        if (active) stopForRestart()
+                        try { config.delete(name) }
+                        finally { if (active && config.user != null) restart() }
                     }
                     DirectRimeManagementCommands.ProfileAction.Unknown -> error("无效目录操作")
                 }

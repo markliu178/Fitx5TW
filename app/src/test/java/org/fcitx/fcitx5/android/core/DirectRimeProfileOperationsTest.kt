@@ -43,7 +43,7 @@ class DirectRimeProfileOperationsTest {
             override fun getFilesDir() = files
             override fun getExternalFilesDir(type: String?) = external
         }
-        config = DirectRimeConfig(context).apply { load(); saveDirectories() }
+        config = DirectRimeConfig(context).apply { load(); create("rime"); saveDirectories() }
         repository = RimeEngineRepository(temporary.newFolder("engines"))
     }
 
@@ -114,7 +114,7 @@ class DirectRimeProfileOperationsTest {
         assertEquals("", config.error)
         assertEquals("keep", File(outside, "personal.dict.yaml").readText())
         val restored = DirectRimeConfig(context).apply { load(); switch("external") }
-        assertEquals(outside.canonicalFile, restored.user.canonicalFile)
+        assertEquals(outside.canonicalFile, restored.user!!.canonicalFile)
         repository.requireProfileMutationIdle()
     }
 

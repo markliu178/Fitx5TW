@@ -58,7 +58,6 @@ class AddonDirProfileManagerFragment : Fragment() {
     private val viewModel: MainViewModel by activityViewModels()
 
     private var containerView: FrameLayout? = null
-    private var latestState: ManagerState? = null
 
     private val allFilesAccessLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
@@ -188,7 +187,6 @@ class AddonDirProfileManagerFragment : Fragment() {
             if (isAdded) requireContext().toast(e)
             return
         }
-        latestState = state
         if (state.error.isNotBlank()) {
             requireContext().toast(state.error)
         }
@@ -304,10 +302,6 @@ class AddonDirProfileManagerFragment : Fragment() {
     }
 
     private fun showDeleteDialog(name: String) {
-        if ((latestState?.profiles?.size ?: 0) <= 1) {
-            requireContext().toast(R.string.addon_dir_profile_delete_last_forbidden)
-            return
-        }
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.delete)
             .setMessage(getString(R.string.addon_dir_profile_delete_confirm, name))

@@ -101,7 +101,7 @@ class UserDataRestoreStartupTest {
         val volume = File(android.os.Environment.getExternalStorageDirectory(), "optional-volume-${UUID.randomUUID()}")
             .apply { check(mkdirs()) }
         val target = File(volume, "profile").apply { mkdir(); File(this, "data").writeText("original") }
-        val config = DirectRimeConfig(context).apply { load(); create("pending", target.path) }
+        val config = DirectRimeConfig(context).apply { load(); create("rime"); create("pending", target.path) }
         val transaction = UserDataRestoreTransaction(UserDataRestoreJournal(context.noBackupFilesDir.canonicalFile)) { from, to ->
             check(from.renameTo(to)); throw ProcessStopped()
         }

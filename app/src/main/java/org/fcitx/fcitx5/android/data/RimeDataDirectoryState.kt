@@ -36,11 +36,12 @@ data class RimeDataDirectoryState(
 
         fun fromConfig(raw: RawConfig, internalRoot: File): RimeDataDirectoryState {
             val cfg = raw.findByName("cfg") ?: raw
-            val current = cfg.findByName("Current")?.value.orEmpty().trim().ifEmpty { "rime" }
+            val current = cfg.findByName("Current")?.value.orEmpty().trim()
             val profiles = cfg.findByName("Profiles")?.value.orEmpty().lineSequence()
                 .map { it.trim() }.filter { it.isNotEmpty() }.distinct().toList()
-                .ifEmpty { listOf(current) }
-            require(profiles.all(::isValidName) && current in profiles) {
+            // An empty profile list means every directory was deleted; do not fabricate one.
+            val resolvedCurrent = current.ifEmpty { profiles.firstOrNull().orEmpty() }
+            require(profiles.all(::isValidName) && (profiles.isEmpty() || resolvedCurrent in profiles)) {
                 "Invalid Rime data directory state."
             }
             val encoded = cfg.findByName("PathsV2")?.value
@@ -53,7 +54,7 @@ data class RimeDataDirectoryState(
                     require(it.keys.containsAll(profiles)) { "Incomplete Rime directory paths." }
                 }
             }
-            return RimeDataDirectoryState(current, profiles, paths)
+            return RimeDataDirectoryState(resolvedCurrent, profiles, paths)
         }
 
         fun decodePaths(encoded: String?, legacy: String, profiles: List<String>): Map<String, String> {

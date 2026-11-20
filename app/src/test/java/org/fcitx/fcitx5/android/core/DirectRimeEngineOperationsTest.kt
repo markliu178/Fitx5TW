@@ -109,7 +109,7 @@ class DirectRimeEngineOperationsTest {
         override fun start(shared: String, user: String, version: String, fullCheck: Boolean, minLogLevel: Int) {
             assertTrue(minLogLevel == DirectRimeEngineLog.INFO || minLogLevel == DirectRimeEngineLog.ERROR)
             assertEquals("test-version", version)
-            assertEquals(config.user.absolutePath, user)
+            assertEquals(config.user!!.absolutePath, user)
             calls += "start:${config.current}:$fullCheck"
             onStart(fullCheck)
         }
@@ -123,7 +123,13 @@ class DirectRimeEngineOperationsTest {
             override fun getFilesDir() = files
             override fun getExternalFilesDir(type: String?) = external
         }
-        config = DirectRimeConfig(context).apply { load(); saveDirectories(); create("first", ""); create("second", "") }
+        config = DirectRimeConfig(context).apply {
+            load()
+            create("rime", "")
+            saveDirectories()
+            create("first", "")
+            create("second", "")
+        }
         repositoryRoot = temporary.newFolder("engines")
         repository = RimeEngineRepository(repositoryRoot)
         // Previously admitted imported payloads. Admission/ELF/probe validation belongs to the

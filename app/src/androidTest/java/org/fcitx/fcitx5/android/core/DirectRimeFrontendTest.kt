@@ -2005,7 +2005,7 @@ end
             }
             val old = File(wrapped.filesDir, "rime/user").apply { mkdirs() }
             File(old, "default.yaml").writeText("schema_list: []\n")
-            val migrated = DirectRimeConfig(wrapped).apply { load() }
+            val migrated = DirectRimeConfig(wrapped).apply { load(); create("rime"); load() }
             assertEquals("schema_list: []\n", File(migrated.user, "default.yaml").readText())
             File(migrated.user, "default.yaml").writeText("customized")
             DirectRimeConfig(wrapped).load()

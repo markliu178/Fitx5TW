@@ -100,6 +100,13 @@ internal class DirectRimeConfig(private val context: Context) {
 
     /** Adds scheme directories copied into [dataRoot] directly, keeping external paths intact. */
     private fun refreshProfiles() {
+        // A profile folder renamed or deleted outside the app must not stay registered;
+        // otherwise it shows as a stale entry (and becomes undeletable) while its renamed
+        // folder is discovered as a second profile.
+        profiles.entries.removeAll { (name, file) ->
+            isInternal(name, file) && runCatching { !file.exists() }.getOrDefault(false)
+        }
+        if (current != null && current !in profiles) current = profiles.keys.firstOrNull()
         val known = profiles.values.map { it.canonicalFile }
         dataRoot.listFiles().orEmpty().forEach { file ->
             val name = file.name
@@ -108,6 +115,7 @@ internal class DirectRimeConfig(private val context: Context) {
             val canonical = file.canonicalFile
             if (known.none { RimeProfileRestorePlan.overlap(it, canonical) }) profiles[name] = file
         }
+        if (current == null) current = profiles.keys.firstOrNull()
     }
 
     private fun isInternal(name: String, file: File): Boolean = runCatching {
@@ -184,9 +192,11 @@ internal class DirectRimeConfig(private val context: Context) {
         check(file.isDirectory || file.mkdirs()) { "无法创建目录，请检查存储权限" }
         check(file.canRead() && file.canWrite()) { "无法访问目录，请检查存储权限" }
         val next = LinkedHashMap(profiles).apply { put(name, file) }
-        try { persistDirectories(next, current) }
+        // The first profile created becomes the working directory; the engine starts idle otherwise.
+        val selected = current ?: name
+        try { persistDirectories(next, selected) }
         catch (e: Exception) { if (!existed) file.delete(); throw e }
-        publishDirectories(next, current)
+        publishDirectories(next, selected)
     }
 
     fun switch(name: String) {
@@ -228,20 +238,22 @@ internal class DirectRimeConfig(private val context: Context) {
         val file = profiles.getValue(name)
         org.fcitx.fcitx5.android.data.UserDataRestoreRuntime.requirePathReady(context, file)
         val internal = isInternal(name, file)
+        // A folder removed outside the app only needs to be unregistered.
+        val moveData = internal && file.exists()
         val next = LinkedHashMap(profiles).apply { remove(name) }
-        if (internal) {
+        if (moveData) {
             requireNoNestedProfiles(name, file)
             directoryMoves.prepare(name, ".deleted-${UUID.randomUUID()}", true, directoriesText(next, current))
         }
         val nextCurrent = if (current == name) next.keys.firstOrNull() else current
         try { persistDirectories(next, nextCurrent) }
         catch (e: Exception) {
-            if (internal) try { directoryMoves.recover() } catch (recovery: Exception) { e.addSuppressed(recovery) }
+            if (moveData) try { directoryMoves.recover() } catch (recovery: Exception) { e.addSuppressed(recovery) }
             throw e
         }
         publishDirectories(next, nextCurrent)
         // External directories are only unregistered; native or user data is never recursively followed through links.
-        if (internal) directoryMoves.recover()
+        if (moveData) directoryMoves.recover()
     }
 
     fun setOptions(config: RawConfig) {

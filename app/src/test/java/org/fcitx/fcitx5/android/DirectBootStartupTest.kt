@@ -192,7 +192,7 @@ class DirectBootStartupTest {
         DataManager.sync()
         val config = DirectRimeConfig(app.directBootAwareContext).apply { load() }
         assertEquals(app.directBootAwareContext.filesDir, config.root)
-        assertTrue(config.user.listFiles().isNullOrEmpty())
+        assertNull(config.user)
         assertNull(UserConfigFiles.textKeyboardLayoutJson())
         assertNull(UserConfigFiles.fontsetJson())
         TextKeyboard.setPasswordDefaultLayout(true)

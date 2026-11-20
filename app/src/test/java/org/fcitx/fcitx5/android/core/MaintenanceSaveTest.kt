@@ -90,6 +90,7 @@ class MaintenanceSaveTest {
     @Test fun advancedSettingsReadNeverEntersMaintenanceOrInvalidatesPendingInput() = runBlocking {
         val config = ReflectionHelpers.getField<DirectRimeConfig>(backend, "config")
         config.load()
+        config.create("rime")
         File(config.user, "default.yaml").writeText("schema_list: [{schema: wanxiang}]\nmenu: {page_size: 6}\n")
         File(config.user, "build").mkdirs()
         File(config.user, "default.yaml").copyTo(File(config.user, "build/default.yaml"))

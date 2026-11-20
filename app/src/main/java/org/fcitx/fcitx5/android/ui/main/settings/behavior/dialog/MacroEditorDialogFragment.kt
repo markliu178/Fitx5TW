@@ -937,8 +937,9 @@ class MacroEditorDialogFragment : DialogFragment() {
     private fun macroStepToData(step: MacroStep): MacroStepData = when (step) {
         is MacroStep.Tap -> MacroStepData("tap", keys = step.keys.map { keyRefToData(it) }.toMutableList())
         is MacroStep.Combo -> MacroStepData("combo", keys = step.keys.map { keyRefToData(it) }.toMutableList())
-        is MacroStep.Down -> MacroStepData("down", keys = step.keys.map { keyRefToData(it) }.toMutableList())
-        is MacroStep.Up -> MacroStepData("up", keys = step.keys.map { keyRefToData(it) }.toMutableList())
+        // Legacy down/up steps become combo steps.
+        is MacroStep.Down -> MacroStepData("combo", keys = step.keys.map { keyRefToData(it) }.toMutableList())
+        is MacroStep.Up -> MacroStepData("combo", keys = step.keys.map { keyRefToData(it) }.toMutableList())
         is MacroStep.Text -> MacroStepData("text", text = step.text)
         is MacroStep.Edit -> MacroStepData("edit", keys = mutableListOf(KeyData("fcitx", step.action)))
         is MacroStep.AppAction -> MacroStepData("app", keys = mutableListOf(KeyData("fcitx", step.id)))
@@ -967,7 +968,7 @@ class MacroEditorDialogFragment : DialogFragment() {
                         return
                     }
                 }
-                "tap", "down", "up" -> {
+                "tap", "combo" -> {
                     if (step.keys.isEmpty()) {
                         Toast.makeText(requireContext(), getString(R.string.macro_editor_step_keys_empty, index + 1), Toast.LENGTH_SHORT).show()
                         return
@@ -1024,7 +1025,7 @@ class MacroEditorDialogFragment : DialogFragment() {
                 Toast.makeText(requireContext(), getString(R.string.macro_editor_step_text_empty), Toast.LENGTH_SHORT).show()
                 return
             }
-            if (step.type in listOf("tap", "down", "up") && step.keys.isEmpty()) {
+            if (step.type in listOf("tap", "combo") && step.keys.isEmpty()) {
                 Toast.makeText(requireContext(), getString(R.string.macro_editor_step_keys_empty, index + 1), Toast.LENGTH_SHORT).show()
                 return
             }
@@ -1050,63 +1051,11 @@ class MacroEditorDialogFragment : DialogFragment() {
             }
         }
 
-        // Validate that each key has matching down and up events
-        val keyEventCounts = mutableMapOf<Pair<String, String>, Pair<Int, Int>>() // (keyType, code) -> (downCount, upCount)
-        steps.forEach { step ->
-            when (step.type) {
-                "tap" -> {
-                    step.keys.forEach { key ->
-                        val keyId = Pair(key.keyType, key.code)
-                        val (down, up) = keyEventCounts.getOrDefault(keyId, Pair(0, 0))
-                        keyEventCounts[keyId] = Pair(down + 1, up + 1)
-                    }
-                }
-                "down" -> {
-                    step.keys.forEach { key ->
-                        val keyId = Pair(key.keyType, key.code)
-                        val (down, up) = keyEventCounts.getOrDefault(keyId, Pair(0, 0))
-                        keyEventCounts[keyId] = Pair(down + 1, up)
-                    }
-                }
-                "up" -> {
-                    step.keys.forEach { key ->
-                        val keyId = Pair(key.keyType, key.code)
-                        val (down, up) = keyEventCounts.getOrDefault(keyId, Pair(0, 0))
-                        keyEventCounts[keyId] = Pair(down, up + 1)
-                    }
-                }
-                "shortcut" -> {
-                    val modifiers = step.keys.filter { isModifierKey(it.code) }
-                    val nonModifiers = step.keys.filter { !isModifierKey(it.code) }
-                    // Modifiers: down at start, up at end
-                    modifiers.forEach { key ->
-                        val keyId = Pair(key.keyType, key.code)
-                        val (down, up) = keyEventCounts.getOrDefault(keyId, Pair(0, 0))
-                        keyEventCounts[keyId] = Pair(down + 1, up + 1)
-                    }
-                    // Key: tap (down + up)
-                    nonModifiers.firstOrNull()?.let { key ->
-                        val keyId = Pair(key.keyType, key.code)
-                        val (down, up) = keyEventCounts.getOrDefault(keyId, Pair(0, 0))
-                        keyEventCounts[keyId] = Pair(down + 1, up + 1)
-                    }
-                }
-                // "text", "edit" and "app" do not involve key events
-            }
-        }
-        // Check for unmatched down/up events
-        val unmatchedKeys = keyEventCounts.filter { (_, counts) -> counts.first != counts.second }
-        if (unmatchedKeys.isNotEmpty()) {
-            val keyNames = unmatchedKeys.keys.joinToString(", ") { (type, code) -> "$type:$code" }
-            Toast.makeText(requireContext(), getString(R.string.macro_editor_key_event_unmatched, keyNames), Toast.LENGTH_SHORT).show()
-            return
-        }
-
         // Convert to Map format
         val result = steps.map { step ->
             buildMap {
                 put("type", step.type)
-                if (step.type in listOf("tap", "down", "up", "shortcut")) {
+                if (step.type in listOf("tap", "combo", "shortcut")) {
                     if (step.type == "shortcut") {
                         // Separate modifiers and key for shortcut type
                         val modifiers = step.keys.filter { isModifierKey(it.code) }
@@ -1149,7 +1098,7 @@ class MacroEditorDialogFragment : DialogFragment() {
     private fun snapshotSteps() = steps.map { step ->
         buildMap {
             put("type", step.type)
-            if (step.type in listOf("tap", "down", "up", "shortcut")) {
+            if (step.type in listOf("tap", "combo", "shortcut")) {
                 if (step.type == "shortcut") {
                     val modifiers = step.keys.filter { isModifierKey(it.code) }
                     val nonModifiers = step.keys.filter { !isModifierKey(it.code) }
@@ -1548,8 +1497,8 @@ class MacroEditorDialogFragment : DialogFragment() {
                 keysFlow.addView(keyChip)
             }
 
-            // Add-key button - show add key for tap/shortcut/down/up; for edit show only [+]
-            if (step.type in listOf("tap", "shortcut", "down", "up")) {
+            // Add-key button - show add key for tap/combo/shortcut; for edit show only [+]
+            if (step.type in listOf("tap", "combo", "shortcut")) {
                 val addKeyChip = TextView(requireContext()).apply {
                     text = "+"
                     textSize = 14f
