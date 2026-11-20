@@ -114,11 +114,12 @@ internal class DirectRimeConfig(private val context: Context) {
 
     fun requireUpdateTarget(name: String, path: String) {
         require(error.isBlank()) { error }
-        require(current == name && user.canonicalPath == path) {
+        val activeDir = user
+        require(current == name && activeDir != null && activeDir.canonicalPath == path) {
             "当前 Rime 工作目录已改变，请返回万象更新页面重新开始"
         }
-        org.fcitx.fcitx5.android.data.UserDataRestoreRuntime.requirePathReady(context, user)
-        require(user.isDirectory && user.canRead() && user.canWrite()) { "无法读写当前 Rime 工作目录" }
+        org.fcitx.fcitx5.android.data.UserDataRestoreRuntime.requirePathReady(context, activeDir)
+        require(activeDir.isDirectory && activeDir.canRead() && activeDir.canWrite()) { "无法读写当前 Rime 工作目录" }
     }
 
     /** External native code may only start against an existing, non-overlapping writable profile. */
@@ -134,20 +135,20 @@ internal class DirectRimeConfig(private val context: Context) {
 
     fun saveDirectories() = persistDirectories(profiles, current)
 
-    private fun persistDirectories(next: Map<String, File>, selected: String) {
+    private fun persistDirectories(next: Map<String, File>, selected: String?) {
         directoryFile.parentFile!!.mkdirs()
         FileUtil.writeAtomically(directoryFile, directoriesText(next, selected))
     }
 
-    private fun directoriesText(next: Map<String, File>, selected: String): String {
+    private fun directoriesText(next: Map<String, File>, selected: String?): String {
         val external = next.filter { (name, file) -> !isInternal(name, file) }
             .mapValues { it.value.absolutePath }
-        val state = RimeDataDirectoryState(selected, next.keys.toList(), next.mapValues { it.value.absolutePath })
+        val state = RimeDataDirectoryState(selected.orEmpty(), next.keys.toList(), next.mapValues { it.value.absolutePath })
         val portable = state.portableConfig().substringBefore("ExternalPaths=")
         return portable + RimeDataDirectoryState.externalPathConfig(external)
     }
 
-    private fun publishDirectories(next: Map<String, File>, selected: String) {
+    private fun publishDirectories(next: Map<String, File>, selected: String?) {
         profiles.clear()
         profiles.putAll(next)
         current = selected
