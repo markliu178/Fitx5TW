@@ -894,6 +894,7 @@ class ButtonsCustomizerActivity : SettingsUiActivity() {
             return s.joinToString(" → ") { step ->
                 when (step) {
                     is MacroStep.Tap -> "Tap ${step.keys.joinToString { (it as? KeyRef.Fcitx)?.code ?: it.toString() }}"
+                    is MacroStep.Combo -> "Combo ${step.keys.joinToString { (it as? KeyRef.Fcitx)?.code ?: it.toString() }}"
                     is MacroStep.Text -> "Text: ${step.text.take(12)}"
                     is MacroStep.AppAction -> "App: ${step.id}"
                     is MacroStep.Shortcut -> "Shortcut: ${step.key}"

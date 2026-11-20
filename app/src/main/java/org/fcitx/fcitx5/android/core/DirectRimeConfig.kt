@@ -26,6 +26,7 @@ internal class DirectRimeConfig(private val context: Context) {
     var current: String? = null
         private set
     private val profiles = linkedMapOf<String, File>()
+    val profileNames: Set<String> get() = profiles.keys.toSet()
     var error = ""
     var preeditMode = "No"
         private set
@@ -58,8 +59,9 @@ internal class DirectRimeConfig(private val context: Context) {
         error = if (profiles.values.toList().let { paths -> paths.indices.any { i ->
             paths.take(i).any { RimeProfileRestorePlan.overlap(it.canonicalFile, paths[i].canonicalFile) }
         } }) "方案目录存在包含关系，请改用互不重叠的目录" else ""
-        if (current != null) {
-            val userDir = profiles.getValue(current)
+        val selected = current
+        if (selected != null) {
+            val userDir = profiles[selected] ?: return
             org.fcitx.fcitx5.android.data.UserDataRestoreRuntime.requirePathReady(context, userDir)
             userDir.mkdirs()
             // Finish an interrupted resource update before librime can open the profile.

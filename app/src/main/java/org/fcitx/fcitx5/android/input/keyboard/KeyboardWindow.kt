@@ -912,6 +912,7 @@ private fun MacroAction.hasExecutableStep(): Boolean {
         when (step) {
             is MacroStep.Down -> step.keys.isNotEmpty()
             is MacroStep.Up -> step.keys.isNotEmpty()
+            is MacroStep.Combo -> step.keys.isNotEmpty()
             is MacroStep.Tap -> step.keys.isNotEmpty()
             is MacroStep.Text -> step.text.isNotEmpty()
             is MacroStep.Edit -> step.action.isNotBlank()

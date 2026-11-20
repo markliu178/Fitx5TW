@@ -504,6 +504,7 @@ object LayoutJsonUtils {
         return when (type) {
             "down" -> MacroStep.Down(obj["keys"]?.jsonArray?.map { parseKeyRef(it.jsonObject) } ?: emptyList())
             "up" -> MacroStep.Up(obj["keys"]?.jsonArray?.map { parseKeyRef(it.jsonObject) } ?: emptyList())
+            "combo" -> MacroStep.Combo(obj["keys"]?.jsonArray?.map { parseKeyRef(it.jsonObject) } ?: emptyList())
             "tap" -> MacroStep.Tap(obj["keys"]?.jsonArray?.map { parseKeyRef(it.jsonObject) } ?: emptyList())
             "text" -> MacroStep.Text(obj["text"]?.jsonPrimitive?.content ?: "")
             "edit" -> MacroStep.Edit(obj["action"]?.jsonPrimitive?.content ?: "copy")
@@ -1211,6 +1212,10 @@ object LayoutJsonUtils {
             ))
             is MacroStep.Up -> JsonObject(mapOf(
                 "type" to JsonPrimitive("up"),
+                "keys" to JsonArray(step.keys.map { keyRefToJson(it) })
+            ))
+            is MacroStep.Combo -> JsonObject(mapOf(
+                "type" to JsonPrimitive("combo"),
                 "keys" to JsonArray(step.keys.map { keyRefToJson(it) })
             ))
             is MacroStep.Tap -> JsonObject(mapOf(

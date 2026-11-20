@@ -3169,6 +3169,23 @@ abstract class BaseKeyboard(
                             }
                             delay(50) // key interval
                         }
+                        is MacroStep.Combo -> {
+                            Timber.v("executeMacro: Combo keys=%d", step.keys.size)
+                            step.keys.forEach { keyRef ->
+                                when (keyRef) {
+                                    is KeyRef.Fcitx -> sendFcitxKeyDown(keyRef.code, macro)
+                                    is KeyRef.Android -> sendAndroidKeyDown(keyRef.code, macro)
+                                }
+                            }
+                            delay(30)
+                            step.keys.reversed().forEach { keyRef ->
+                                when (keyRef) {
+                                    is KeyRef.Fcitx -> sendFcitxKeyUp(keyRef.code, macro)
+                                    is KeyRef.Android -> sendAndroidKeyUp(keyRef.code, macro)
+                                }
+                            }
+                            delay(50) // key interval
+                        }
                         is MacroStep.Tap -> {
                             step.keys.forEach { keyRef ->
                                 when (keyRef) {
@@ -3232,6 +3249,7 @@ abstract class BaseKeyboard(
             when (step) {
                 is MacroStep.Down -> step.keys.isNotEmpty()
                 is MacroStep.Up -> step.keys.isNotEmpty()
+                is MacroStep.Combo -> step.keys.isNotEmpty()
                 is MacroStep.Tap -> step.keys.isNotEmpty()
                 is MacroStep.Text -> step.text.isNotEmpty()
                 is MacroStep.Edit -> step.action.isNotBlank()

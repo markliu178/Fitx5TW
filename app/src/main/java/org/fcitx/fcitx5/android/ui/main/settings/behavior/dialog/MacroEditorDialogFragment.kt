@@ -936,6 +936,7 @@ class MacroEditorDialogFragment : DialogFragment() {
 
     private fun macroStepToData(step: MacroStep): MacroStepData = when (step) {
         is MacroStep.Tap -> MacroStepData("tap", keys = step.keys.map { keyRefToData(it) }.toMutableList())
+        is MacroStep.Combo -> MacroStepData("combo", keys = step.keys.map { keyRefToData(it) }.toMutableList())
         is MacroStep.Down -> MacroStepData("down", keys = step.keys.map { keyRefToData(it) }.toMutableList())
         is MacroStep.Up -> MacroStepData("up", keys = step.keys.map { keyRefToData(it) }.toMutableList())
         is MacroStep.Text -> MacroStepData("text", text = step.text)

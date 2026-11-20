@@ -1764,6 +1764,7 @@ class TextKeyboard private constructor(
             when (step) {
                 is MacroStep.Down -> step.copy(keys = step.keys.map { transformKeyRef(it, step) })
                 is MacroStep.Up -> step.copy(keys = step.keys.map { transformKeyRef(it, step) })
+                is MacroStep.Combo -> step.copy(keys = step.keys.map { transformKeyRef(it, step) })
                 is MacroStep.Tap -> step.copy(keys = step.keys.map { transformKeyRef(it, step) })
                 is MacroStep.Shortcut -> step.copy(
                     modifiers = step.modifiers,
