@@ -282,7 +282,7 @@ class DataBackupFragment : PaddingPreferenceFragment() {
                     loading { withContext(Dispatchers.IO) { UserDataManager.validateRestore(backup, plan) } }
                 }
                 val targets = plan.destinations.map { (profile, target) ->
-                    val path = target ?: File(ctx.getExternalFilesDir(null), "data/$profile")
+                    val path = target ?: File(ctx.getExternalFilesDir(null), "rime/$profile")
                     getString(R.string.rime_restore_target_line, profile, path.absolutePath)
                 }.joinToString("\n\n")
                 val message = when (kind) {

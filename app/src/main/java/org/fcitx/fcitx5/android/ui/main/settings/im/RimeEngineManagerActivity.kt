@@ -129,7 +129,7 @@ class RimeEngineManagerActivity : SettingsUiActivity() {
                 val directories = connection.runOnReady {
                     RimeDataDirectoryState.fromConfig(
                         getAddonSubConfig("rime", "profile-manager"),
-                        File(getExternalFilesDir(null), "data")
+                        File(getExternalFilesDir(null), "rime")
                     )
                 }
                 val loaded = withContext(Dispatchers.IO) {

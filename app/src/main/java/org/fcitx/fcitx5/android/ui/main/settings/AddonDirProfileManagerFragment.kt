@@ -167,7 +167,7 @@ class AddonDirProfileManagerFragment : Fragment() {
         }
         val cfg = raw.findByName("cfg") ?: raw
         val state = RimeDataDirectoryState.fromConfig(
-            raw, requireContext().getExternalFilesDir(null)!!.resolve("data")
+            raw, requireContext().getExternalFilesDir(null)!!.resolve("rime")
         )
         val error = cfg.findByName("Error")?.value.orEmpty()
         return ManagerState(

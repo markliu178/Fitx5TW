@@ -91,8 +91,8 @@ class InputStatisticsDeviceTest {
                 setAddonSubConfig("rime", "profile-manager", profileCommand("create", name))
                 createdProfile = true
             }
-            val directory = File(context.getExternalFilesDir(null) ?: context.filesDir, "data/$name").canonicalFile
-            assertEquals(File(context.getExternalFilesDir(null) ?: context.filesDir, "data").canonicalFile, directory.parentFile)
+            val directory = File(context.getExternalFilesDir(null) ?: context.filesDir, "rime/$name").canonicalFile
+            assertEquals(File(context.getExternalFilesDir(null) ?: context.filesDir, "rime").canonicalFile, directory.parentFile)
             instrumentation.context.assets.list("smoke")!!.forEach { file ->
                 instrumentation.context.assets.open("smoke/$file").use { input ->
                     File(directory, file).outputStream().use { input.copyTo(it) }

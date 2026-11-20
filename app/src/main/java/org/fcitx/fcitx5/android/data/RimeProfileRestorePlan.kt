@@ -50,13 +50,13 @@ data class RimeProfileRestorePlan(val destinations: Map<String, File?>) {
 
     internal fun copyApplicationData(extractedRoot: File, stagedAppRoot: File) {
         destinations.keys.forEach { name ->
-            val old = File(stagedAppRoot, "data/$name")
+            val old = File(stagedAppRoot, "rime/$name")
             if (old.exists() && !old.deleteRecursively()) throw IOException("Unable to prepare restored Rime directory.")
         }
         BackupFileTree.copy(File(extractedRoot, "external"), stagedAppRoot)
         destinations.forEach { (name, target) ->
             if (target != null) {
-                val payload = File(stagedAppRoot, "data/$name")
+                val payload = File(stagedAppRoot, "rime/$name")
                 if (payload.exists() && !payload.deleteRecursively()) throw IOException("Unable to stage external Rime data.")
             }
         }

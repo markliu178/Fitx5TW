@@ -258,8 +258,8 @@ class WanxiangSettingsUiTest {
                 setAddonSubConfig("rime", "profile-manager", command("create", name))
                 created = true
             } } }
-            val directory = File(context.getExternalFilesDir(null) ?: context.filesDir, "data/$name").canonicalFile
-            assertEquals(File(context.getExternalFilesDir(null) ?: context.filesDir, "data").canonicalFile, directory.parentFile)
+            val directory = File(context.getExternalFilesDir(null) ?: context.filesDir, "rime/$name").canonicalFile
+            assertEquals(File(context.getExternalFilesDir(null) ?: context.filesDir, "rime").canonicalFile, directory.parentFile)
             assertTrue(directory.isDirectory)
             if (fixture) {
                 instrumentation.context.assets.list("smoke")!!.forEach { file ->

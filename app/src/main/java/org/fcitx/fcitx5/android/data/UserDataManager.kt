@@ -122,9 +122,9 @@ object UserDataManager {
     private fun writeExternalAppData(zipStream: ZipOutputStream) {
         val root = externalDir.canonicalFile
         val config = File(root, RimeDataDirectoryState.CONFIG_PATH).canonicalFile
-        // Everything under data/ is Rime scheme data (registered or copied in), so it is
+        // Everything under rime/ is Rime scheme data (registered or copied in), so it is
         // covered by the scheme backup and must never leak into the app backup.
-        val profileRoot = File(root, "data").canonicalFile
+        val profileRoot = File(root, "rime").canonicalFile
         BackupFileTree.write(root, "external", zipStream) { file ->
             val canonical = file.canonicalFile
             canonical == config || canonical == profileRoot

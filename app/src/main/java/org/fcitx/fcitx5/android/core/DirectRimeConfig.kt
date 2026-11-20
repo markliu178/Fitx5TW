@@ -19,7 +19,7 @@ internal class DirectRimeConfig(private val context: Context) {
         // Context. Before first unlock use a separate, empty profile beside the DE prefs.
         context.filesDir
     } else context.getExternalFilesDir(null) ?: context.filesDir
-    val dataRoot = File(root, "data")
+    val dataRoot = File(root, "rime")
     private val directoryFile = File(root, "config/conf/rime-data-dir.conf")
     private val optionsFile = File(root, "config/conf/rime.conf")
     private val directoryMoves = DirectoryMoveJournal(dataRoot, directoryFile)

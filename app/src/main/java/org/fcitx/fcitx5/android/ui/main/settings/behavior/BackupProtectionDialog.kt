@@ -33,7 +33,7 @@ internal suspend fun Context.chooseBackupProtection(export: Boolean): BackupProt
         }
         val builder = MaterialAlertDialogBuilder(this)
             .setTitle(if (export) R.string.backup_protected_export else R.string.backup_protected_import)
-            .setMessage(if (export) R.string.backup_protection_explanation else R.string.backup_enter_password)
+            .setMessage(if (export) null else R.string.backup_enter_password)
             .setView(fields)
             .setPositiveButton(android.R.string.ok, null)
             .setNegativeButton(android.R.string.cancel, null)

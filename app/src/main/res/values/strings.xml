@@ -513,7 +513,7 @@
     <string name="backup_password_confirm">Confirm password</string>
     <string name="backup_password_mismatch">Passwords do not match</string>
     <string name="backup_enter_password">Enter the backup password</string>
-    <string name="backup_plaintext_zip">Plain ZIP (compatibility)</string>
+    <string name="backup_plaintext_zip">Plain ZIP</string>
     <string name="import_user_data">Import user data</string>
     <string name="exception_user_data_filename">The filename extension of %1$s does not indicate fcitx5-android user data</string>
     <string name="exception_user_data_metadata">Unable to find metadata of user data</string>

@@ -51,7 +51,7 @@ object RimeProfileBackup {
         val internal = mutableListOf<String>()
         state.profiles.forEach { name ->
             val source = File(state.paths.getValue(name)).canonicalFile
-            val internalDir = File(root, "data/$name").canonicalFile
+            val internalDir = File(root, "rime/$name").canonicalFile
             if (source == internalDir) {
                 internal += name
             } else {
@@ -89,7 +89,7 @@ object RimeProfileBackup {
         val sources = resolveSources(externalRoot, state)
         BackupFileTree.write(sources.root, "external", zip) { file ->
             file == File(sources.root, RimeDataDirectoryState.CONFIG_PATH) ||
-                sources.external.keys.any { file == File(sources.root, "data/$it") }
+                sources.external.keys.any { file == File(sources.root, "rime/$it") }
         }
         sources.external.forEach { (name, source) ->
             BackupFileTree.write(source, "external/data/$name", zip)
@@ -105,7 +105,7 @@ object RimeProfileBackup {
     fun writeProfilesOnly(externalRoot: File, state: RimeDataDirectoryState, zip: ZipOutputStream) {
         val sources = resolveSources(externalRoot, state)
         sources.internal.forEach { name ->
-            BackupFileTree.write(File(sources.root, "data/$name"), "external/data/$name", zip)
+            BackupFileTree.write(File(sources.root, "rime/$name"), "external/data/$name", zip)
         }
         sources.external.forEach { (name, source) ->
             BackupFileTree.write(source, "external/data/$name", zip)

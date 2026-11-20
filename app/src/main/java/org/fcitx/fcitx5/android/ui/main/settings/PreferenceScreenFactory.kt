@@ -374,7 +374,7 @@ object PreferenceScreenFactory {
                 conn.runOnReady {
                     val raw = getAddonSubConfig("rime", "profile-manager")
                     val state = RimeDataDirectoryState.fromConfig(
-                        raw, context.getExternalFilesDir(null)!!.resolve("data")
+                        raw, context.getExternalFilesDir(null)!!.resolve("rime")
                     )
                     state.paths.getValue(state.current)
                 }

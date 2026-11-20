@@ -757,13 +757,8 @@ class DirectRimeBackend(context: Context) : InputEngine {
                 require(!directBootMode) { "首次解锁前不能导入 Rime 工作目录" }
                 engineRepository.requireProfileMutationIdle()
                 engineRepository.requireBuiltinForProfileSwitch()
-                val command = DirectRimeManagementCommands.importProfile(config)
-                val destinationPath = command.destinationPath
-                val parent = if (destinationPath.isBlank()) {
-                    this.config.dataRoot.canonicalFile
-                } else {
-                    File(destinationPath).canonicalFile
-                }
+                DirectRimeManagementCommands.importProfile(config)
+                val parent = this.config.dataRoot.canonicalFile
                 val profiles = this.config.directoryState().findByName("Profiles")?.value
                     .orEmpty().lineSequence().filter(String::isNotBlank).toSet()
                 val transaction = RimeProfileImportTransaction.prepare(

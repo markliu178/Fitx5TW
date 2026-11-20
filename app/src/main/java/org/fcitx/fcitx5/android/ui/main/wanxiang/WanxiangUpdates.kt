@@ -22,7 +22,7 @@ internal data class WanxiangTarget(val profile: String, val path: String) {
     companion object {
         fun from(context: Context, raw: RawConfig): WanxiangTarget {
             require(raw.findByName("Error")?.value.isNullOrBlank()) { raw.findByName("Error")!!.value }
-            val state = RimeDataDirectoryState.fromConfig(raw, File(context.getExternalFilesDir(null) ?: context.filesDir, "data"))
+            val state = RimeDataDirectoryState.fromConfig(raw, File(context.getExternalFilesDir(null) ?: context.filesDir, "rime"))
             val directory = File(state.paths.getValue(state.current)).canonicalFile
             require(directory.isDirectory && directory.canRead() && directory.canWrite()) { "Cannot access the current Rime directory" }
             return WanxiangTarget(state.current, directory.path)

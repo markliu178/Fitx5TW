@@ -23,7 +23,7 @@ object UserDataBackupManager {
             val state = connection.runOnReady {
                 save()
                 RimeDataDirectoryState.fromConfig(getAddonSubConfig("rime", "profile-manager"),
-                    appContext.getExternalFilesDir(null)!!.resolve("data"))
+                    appContext.getExternalFilesDir(null)!!.resolve("rime"))
             }
             val ready = withContext(Dispatchers.IO) {
                 UserDataBackupArchive.prepare(appContext.cacheDir,
