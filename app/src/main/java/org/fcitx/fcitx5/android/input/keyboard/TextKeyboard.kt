@@ -1233,7 +1233,7 @@ class TextKeyboard private constructor(
                     AlphabetKey("L", ")")
                 ),
                 listOf(
-                    CapsKey(),
+                    ShiftKey(),
                     AlphabetKey("Z", "'"),
                     AlphabetKey("X", ":"),
                     AlphabetKey("C", "\""),
@@ -1669,7 +1669,7 @@ class TextKeyboard private constructor(
             }
             is KeyAction.CapsAction -> {
                 if (!action.lock && source == KeyActionListener.Source.Keyboard && tryConsumeMacroCapsLock()) {
-                    // MacroKey tap Caps_Lock opened lock state: single tap on CapsKey should send Caps_Lock again.
+                    // MacroKey tap Caps_Lock opened lock state: single tap on ShiftKey should send Caps_Lock again.
                 } else {
                     switchCapsState(action.lock)
                 }

@@ -13,14 +13,14 @@ import org.fcitx.fcitx5.android.data.theme.Theme
 internal class LayoutKeyColors(private val systemColor: (String) -> Int? = { null }) {
     fun background(key: Map<String, Any?>, theme: Theme): Int =
         resolveOverride(key, "backgroundColor", theme) ?: when (key["type"]) {
-            "CapsKey", "LayoutSwitchKey", "CommaKey", "SymbolKey", "BackspaceKey", "MiniSpaceKey" -> theme.altKeyBackgroundColor
+            "Shift_L", "LayoutSwitchKey", "CommaKey", "SymbolKey", "BackspaceKey", "MiniSpaceKey" -> theme.altKeyBackgroundColor
             "ReturnKey" -> theme.accentKeyBackgroundColor
             else -> theme.keyBackgroundColor
         }
 
     fun foreground(key: Map<String, Any?>, theme: Theme): Int =
         resolveOverride(key, "textColor", theme) ?: when (key["type"]) {
-            "CapsKey", "LayoutSwitchKey", "CommaKey", "SymbolKey", "BackspaceKey", "MiniSpaceKey", "LanguageKey" -> theme.altKeyTextColor
+            "Shift_L", "LayoutSwitchKey", "CommaKey", "SymbolKey", "BackspaceKey", "MiniSpaceKey", "LanguageKey" -> theme.altKeyTextColor
             "ReturnKey" -> theme.accentKeyTextColor
             else -> theme.keyTextColor
         }

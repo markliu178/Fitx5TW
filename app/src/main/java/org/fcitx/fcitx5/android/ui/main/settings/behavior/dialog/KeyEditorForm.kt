@@ -791,7 +791,7 @@ class KeyEditorForm(
                 addHorizontalSwipeMacroEditors(keyData)
             }
 
-            "CapsKey", "ReturnKey", "BackspaceKey" -> {
+            "Shift_L", "ReturnKey", "BackspaceKey" -> {
                 if (!disableWeightEditing) {
                     val weightEdit = uiBuilder.createEditField(
                         getString(R.string.text_keyboard_layout_key_weight),
@@ -1502,7 +1502,7 @@ class KeyEditorForm(
      */
     private fun addAltLabelOffsetEditors(keyData: Map<String, Any?>) {
         val hasDownLabel = selectedType in setOf(
-            "LayoutSwitchKey", "SymbolKey", "MacroKey", "CapsKey", "ReturnKey", "BackspaceKey"
+            "LayoutSwitchKey", "SymbolKey", "MacroKey", "Shift_L", "ReturnKey", "BackspaceKey"
         )
         val supportsAltLabel = hasDownLabel || selectedType in setOf(
             "AlphabetKey", "SpaceKey", "PlaceholderKey"
@@ -2015,7 +2015,7 @@ class KeyEditorForm(
                 }
             }
 
-            "CapsKey", "ReturnKey", "BackspaceKey" -> {
+            "Shift_L", "ReturnKey", "BackspaceKey" -> {
                 appendDirectionalSwipeLabels(draft)
                 if (!disableWeightEditing) {
                     parseWeight(simpleWeightEdit?.text?.toString())?.let { draft["weight"] = it }
@@ -2558,7 +2558,7 @@ class KeyEditorForm(
                 }
             }
 
-            "CapsKey", "ReturnKey", "BackspaceKey" -> {
+            "Shift_L", "ReturnKey", "BackspaceKey" -> {
                 appendDirectionalSwipeLabels(newKey)
                 if (!disableWeightEditing) {
                     parseWeight(simpleWeightEdit?.text?.toString())?.let { newKey["weight"] = it }
@@ -2717,7 +2717,7 @@ class KeyEditorForm(
 
         private val HORIZONTAL_SWIPE_TYPES = setOf(
             "LayoutSwitchKey", "SymbolKey", "MacroKey",
-            "CapsKey", "ReturnKey", "BackspaceKey", "SpaceKey"
+            "Shift_L", "ReturnKey", "BackspaceKey", "SpaceKey"
         )
 
         /** 退格键左滑事件：清删（自带的按距离滑删）。 */

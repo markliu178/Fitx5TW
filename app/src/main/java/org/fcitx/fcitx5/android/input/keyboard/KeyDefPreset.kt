@@ -162,7 +162,7 @@ class AlphabetKey(
     )
 )
 
-class CapsKey(
+class ShiftKey(
     percentWidth: Float = 0.15f,
     textColor: Int? = null,
     textColorMonet: String? = null,

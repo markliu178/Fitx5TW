@@ -673,7 +673,7 @@ object LayoutJsonUtils {
         legacyTargetIsUp: Boolean? = null
     ): Boolean {
         val directionalTypes = setOf(
-            "CapsKey", "LayoutSwitchKey", "SymbolKey", "ReturnKey", "BackspaceKey", "MacroKey"
+            "Shift_L", "LayoutSwitchKey", "SymbolKey", "ReturnKey", "BackspaceKey", "MacroKey"
         )
         var changed = false
 
@@ -989,7 +989,7 @@ object LayoutJsonUtils {
         keyDef: KeyDef
     ) {
         when (keyDef) {
-            is CapsKey -> putDirectionalSwipeFields(
+            is ShiftKey -> putDirectionalSwipeFields(
                 json, keyDef.swipeLabel, keyDef.swipeUpLabel, keyDef.swipeDownLabel,
                 keyDef.swipe, keyDef.swipeUp, keyDef.swipeDown,
                 keyDef.swipeLeft, keyDef.swipeRight
@@ -1056,7 +1056,7 @@ object LayoutJsonUtils {
     fun keyDefToJson(keyDef: KeyDef): MutableMap<String, Any?> {
         val type = when (keyDef) {
             is AlphabetKey -> "AlphabetKey"
-            is CapsKey -> "CapsKey"
+            is ShiftKey -> "Shift_L"
             is LayoutSwitchKey -> "LayoutSwitchKey"
             is CommaKey -> "CommaKey"
             is LanguageKey -> "LanguageKey"
@@ -1091,7 +1091,7 @@ object LayoutJsonUtils {
                 keyDef.displayText?.takeIf { it.isNotEmpty() }?.let { json["displayText"] = it }
                 json["weight"] = appearance.percentWidth.takeIf { it != 0.1f }
             }
-            is CapsKey -> {
+            is ShiftKey -> {
                 json["weight"] = appearance.percentWidth
                 putDirectionalSwipeFieldsForKey(json, keyDef)
             }
@@ -1357,7 +1357,7 @@ object LayoutJsonUtils {
                 shadowColor = key.shadowColor,
                 shadowColorMonet = key.shadowColorMonet
             )
-            "CapsKey" -> CapsKey(
+            "Shift_L" -> ShiftKey(
                 swipeUp = directionalUpMacro,
                 swipeDown = directionalDownMacro,
                 swipeLeft = key.swipeLeft,

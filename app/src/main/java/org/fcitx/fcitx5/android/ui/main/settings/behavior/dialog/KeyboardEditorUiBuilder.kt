@@ -62,7 +62,7 @@ class KeyboardEditorUiBuilder(private val activity: android.content.Context) {
          */
         val KEY_TYPES = arrayOf(
             "AlphabetKey",
-            "CapsKey",
+            "Shift_L",
             "LayoutSwitchKey",
             "CommaKey",
             "LanguageKey",
@@ -96,15 +96,6 @@ class KeyboardEditorUiBuilder(private val activity: android.content.Context) {
             R.string.text_keyboard_layout_key_type_mini_space,
             R.string.text_keyboard_layout_key_type_placeholder,
             R.string.text_keyboard_layout_key_type_macro
-        )
-
-        /**
-         * 按键类型在下拉框左侧显示的短名。未在此映射中的类型直接用 [KEY_TYPES] 里的原始
-         * 类型名。CapsKey 的实际行为是左侧 Shift，因此显示为「左Shift」，但 JSON 类型值与
-         * 既有逻辑仍保留 "CapsKey"，避免破坏已有布局。
-         */
-        private val KEY_TYPE_SHORT_NAMES = mapOf(
-            "CapsKey" to R.string.text_keyboard_layout_key_type_caps_short
         )
 
         val SWITCH_TARGET_OPTIONS = listOf(
@@ -201,8 +192,7 @@ class KeyboardEditorUiBuilder(private val activity: android.content.Context) {
         val type = KEY_TYPES.getOrNull(index) ?: return ""
         val labelRes = KEY_TYPE_LABELS.getOrNull(index)
             ?: return type
-        val displayType = KEY_TYPE_SHORT_NAMES[type]?.let(activity::getString) ?: type
-        return activity.getString(R.string.text_keyboard_layout_key_type_format, displayType, activity.getString(labelRes))
+        return activity.getString(R.string.text_keyboard_layout_key_type_format, type, activity.getString(labelRes))
     }
 
     /**

@@ -4544,7 +4544,7 @@ class TextKeyboardLayoutEditorActivity : SettingsUiActivity() {
                 }
                 (displayText ?: main).ifEmpty { "?" }
             }
-            "CapsKey" -> getString(R.string.text_keyboard_layout_key_label_caps)
+            "Shift_L" -> getString(R.string.text_keyboard_layout_key_label_caps)
             "LayoutSwitchKey" -> key["label"] as? String ?: "?123"
             "CommaKey" -> ","
             "LanguageKey" -> getString(R.string.text_keyboard_layout_key_label_lang)

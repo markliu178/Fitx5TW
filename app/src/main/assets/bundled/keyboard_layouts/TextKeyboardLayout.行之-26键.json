@@ -31,7 +31,7 @@
       ],
       [
         {"type":"MacroKey","label":".","weight":0.005,"rowHeightPercent":26.2,"tap":{"macro":[{"type":"text","text":""}]},"textColorMonet":"theme:backgroundColor","altTextColor":-1,"backgroundColorMonet":"theme:backgroundColor","shadowColorMonet":"theme:backgroundColor"},
-        {"type":"CapsKey","weight":0.087},
+        {"type":"Shift_L","weight":0.087},
         {"type":"MacroKey","label":"z","altLabel":"`","weight":0.098,"tap":{"macro":[{"type":"tap","keys":[{"fcitx":"Z"}]}]},"swipe":{"macro":[{"type":"tap","keys":[{"fcitx":"grave"}]}]},"longPress":{"macro":[{"type":"tap","keys":[{"fcitx":"Tab"}]}]},"longPressLabel":"Tab"},
         {"type":"MacroKey","label":"x","altLabel":"✄","weight":0.098,"tap":{"macro":[{"type":"tap","keys":[{"fcitx":"X"}]}]},"swipe":{"macro":[{"type":"edit","action":"cut"}]},"longPress":{"macro":[{"type":"edit","action":"selectAll"},{"type":"edit","action":"cut"}]},"longPressLabel":"全剪"},
         {"type":"MacroKey","label":"c","altLabel":"❐","weight":0.098,"tap":{"macro":[{"type":"tap","keys":[{"fcitx":"C"}]}]},"swipe":{"macro":[{"type":"edit","action":"copy"}]},"longPress":{"macro":[{"type":"tap","keys":[{"fcitx":"Home"}]},{"type":"down","keys":[{"fcitx":"Shift_L"},{"fcitx":"End"}]},{"type":"up","keys":[{"fcitx":"Shift_L"},{"fcitx":"End"}]},{"type":"edit","action":"copy"},{"type":"tap","keys":[{"fcitx":"End"}]}]},"longPressLabel":"❐↔"},
@@ -85,7 +85,7 @@
       ],
       [
         {"type":"MacroKey","label":".","weight":0.005,"rowHeightPercent":26.2,"tap":{"macro":[{"type":"text","text":""}]},"textColorMonet":"theme:backgroundColor","altTextColor":-1,"backgroundColorMonet":"theme:backgroundColor","shadowColorMonet":"theme:backgroundColor"},
-        {"type":"CapsKey","weight":0.087},
+        {"type":"Shift_L","weight":0.087},
         {"type":"MacroKey","label":"z","altLabel":"`","weight":0.098,"tap":{"macro":[{"type":"tap","keys":[{"fcitx":"Z"}]}]},"swipe":{"macro":[{"type":"tap","keys":[{"fcitx":"grave"}]}]},"longPress":{"macro":[{"type":"tap","keys":[{"fcitx":"Tab"}]}]},"longPressLabel":"Tab"},
         {"type":"MacroKey","label":"x","altLabel":"剪切","weight":0.098,"tap":{"macro":[{"type":"tap","keys":[{"fcitx":"X"}]}]},"swipe":{"macro":[{"type":"edit","action":"cut"}]},"longPress":{"macro":[{"type":"edit","action":"selectAll"},{"type":"edit","action":"cut"}]},"longPressLabel":"全剪"},
         {"type":"MacroKey","label":"c","altLabel":"复制","weight":0.098,"tap":{"macro":[{"type":"tap","keys":[{"fcitx":"C"}]}]},"swipe":{"macro":[{"type":"edit","action":"copy"}]},"longPress":{"macro":[{"type":"tap","keys":[{"fcitx":"Home"}]},{"type":"down","keys":[{"fcitx":"Shift_L"},{"fcitx":"End"}]},{"type":"up","keys":[{"fcitx":"Shift_L"},{"fcitx":"End"}]},{"type":"edit","action":"copy"},{"type":"tap","keys":[{"fcitx":"End"}]}]},"longPressLabel":"❐↔"},
@@ -139,7 +139,7 @@
       ],
       [
         {"type":"MacroKey","label":".","weight":0.005,"rowHeightPercent":26.2,"tap":{"macro":[{"type":"text","text":""}]},"textColorMonet":"theme:backgroundColor","altTextColor":-1,"backgroundColorMonet":"theme:backgroundColor","shadowColorMonet":"theme:backgroundColor"},
-        {"type":"CapsKey","weight":0.087},
+        {"type":"Shift_L","weight":0.087},
         {"type":"MacroKey","label":"z","altLabel":"`","weight":0.098,"tap":{"macro":[{"type":"tap","keys":[{"fcitx":"Z"}]}]},"swipe":{"macro":[{"type":"tap","keys":[{"fcitx":"grave"}]}]},"longPress":{"macro":[{"type":"tap","keys":[{"fcitx":"Tab"}]}]},"longPressLabel":"Tab"},
         {"type":"MacroKey","label":"x","altLabel":"剪切","weight":0.098,"tap":{"macro":[{"type":"tap","keys":[{"fcitx":"X"}]}]},"swipe":{"macro":[{"type":"edit","action":"cut"}]},"longPress":{"macro":[{"type":"edit","action":"selectAll"},{"type":"edit","action":"cut"}]},"longPressLabel":"全剪"},
         {"type":"MacroKey","label":"c","altLabel":"复制","weight":0.098,"tap":{"macro":[{"type":"tap","keys":[{"fcitx":"C"}]}]},"swipe":{"macro":[{"type":"edit","action":"copy"}]},"longPress":{"macro":[{"type":"tap","keys":[{"fcitx":"Home"}]},{"type":"down","keys":[{"fcitx":"Shift_L"},{"fcitx":"End"}]},{"type":"up","keys":[{"fcitx":"Shift_L"},{"fcitx":"End"}]},{"type":"edit","action":"copy"},{"type":"tap","keys":[{"fcitx":"End"}]}]},"longPressLabel":"❐↔"},

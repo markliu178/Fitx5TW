@@ -14,7 +14,7 @@ internal object LayoutKeyUi {
         "NumPadKey" to setOf("type", "label"),
         "MacroKey" to setOf("type", "label", "tap")
     )
-    private val wideKeys = setOf("CapsKey", "LayoutSwitchKey", "ReturnKey", "BackspaceKey", "MiniSpaceKey")
+    private val wideKeys = setOf("Shift_L", "LayoutSwitchKey", "ReturnKey", "BackspaceKey", "MiniSpaceKey")
 
     fun hasCustomizedProperties(key: Map<String, Any?>): Boolean {
         val type = key["type"] as? String

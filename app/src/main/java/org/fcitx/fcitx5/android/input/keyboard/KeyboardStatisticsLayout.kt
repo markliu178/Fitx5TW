@@ -17,7 +17,7 @@ internal object KeyboardStatisticsLayout {
             is SpaceKey, is MiniSpaceKey -> "Space"
             is BackspaceKey -> "Backspace"
             is ReturnKey -> "Enter"
-            is CapsKey -> "Shift"
+            is ShiftKey -> "Shift"
             is LanguageKey -> "Language"
             is LayoutSwitchKey, is ImageLayoutSwitchKey -> "Layout"
             is CommaKey -> ","

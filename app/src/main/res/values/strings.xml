@@ -692,7 +692,6 @@
     <string name="text_keyboard_layout_key_type_format">%1$s / %2$s</string>
     <string name="text_keyboard_layout_key_type_alphabet">letter key</string>
     <string name="text_keyboard_layout_key_type_caps">case switch (Shift/Caps)</string>
-    <string name="text_keyboard_layout_key_type_caps_short">Left Shift</string>
     <string name="text_keyboard_layout_key_type_layout_switch">switch keyboard layout/layer</string>
     <string name="text_keyboard_layout_key_type_comma">comma</string>
     <string name="text_keyboard_layout_key_type_language">Chinese/Latin switch</string>

@@ -679,7 +679,6 @@
     <string name="text_keyboard_layout_key_type_format">%1$s / %2$s</string>
     <string name="text_keyboard_layout_key_type_alphabet">字母键</string>
     <string name="text_keyboard_layout_key_type_caps">大小写键</string>
-    <string name="text_keyboard_layout_key_type_caps_short">左Shift</string>
     <string name="text_keyboard_layout_key_type_layout_switch">切层键</string>
     <string name="text_keyboard_layout_key_type_comma">逗号键</string>
     <string name="text_keyboard_layout_key_type_language">中英文键</string>
