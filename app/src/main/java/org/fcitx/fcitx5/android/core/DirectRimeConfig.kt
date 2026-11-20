@@ -132,7 +132,7 @@ internal class DirectRimeConfig(private val context: Context) {
     private fun normalizeSyncDirectory(profile: File) {
         val file = File(profile, "installation.yaml")
         if (!file.isFile || file.length() > 64 * 1024 || !file.canWrite()) return
-        val lines = runCatching { file.readLines() }.getOrNull() ?: return
+        val lines = runCatching { file.readLines().toMutableList() }.getOrNull() ?: return
         val index = lines.indexOfFirst { it.startsWith("sync_dir:") }
         if (index < 0) return
         val recorded = runCatching {
