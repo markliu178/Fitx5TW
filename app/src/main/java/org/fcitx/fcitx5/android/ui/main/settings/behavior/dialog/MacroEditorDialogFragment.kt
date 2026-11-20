@@ -1761,37 +1761,6 @@ class MacroEditorDialogFragment : DialogFragment() {
                 .takeIf { it >= 0 } ?: -1
             var searchQuery = ""
 
-            // Search bar
-            val searchBar = android.widget.EditText(requireContext()).apply {
-                hint = getString(R.string.macro_editor_search_key_hint)
-                inputType = android.text.InputType.TYPE_CLASS_TEXT
-                textSize = 14f
-                setSingleLine()
-                setPadding(requireContext().dp(12), requireContext().dp(8), requireContext().dp(12), requireContext().dp(8))
-                background = android.graphics.drawable.GradientDrawable().apply {
-                    setStroke(requireContext().dp(1), borderColor)
-                    cornerRadius = requireContext().dp(4).toFloat()
-                }
-                setOnEditorActionListener { _, actionId, _ ->
-                    if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
-                        (context.getSystemService(android.content.Context.INPUT_METHOD_SERVICE)
-                            as? android.view.inputmethod.InputMethodManager)?.hideSoftInputFromWindow(
-                            windowToken, 0
-                        )
-                        true
-                    } else false
-                }
-                addTextChangedListener(object : android.text.TextWatcher {
-                    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                        searchQuery = s?.toString().orEmpty()
-                        renderChips()
-                    }
-                    override fun afterTextChanged(s: android.text.Editable?) {}
-                })
-            }
-            dialogView.addView(searchBar)
-
             val chipsContainer = FlowLayout(requireContext()).apply {
                 setPadding(requireContext().dp(12), requireContext().dp(8), requireContext().dp(12), requireContext().dp(8))
             }
@@ -1829,6 +1798,37 @@ class MacroEditorDialogFragment : DialogFragment() {
                     chipsContainer.addView(chip)
                 }
             }
+
+            // Search bar
+            val searchBar = android.widget.EditText(requireContext()).apply {
+                hint = getString(R.string.macro_editor_search_key_hint)
+                inputType = android.text.InputType.TYPE_CLASS_TEXT
+                textSize = 14f
+                setSingleLine()
+                setPadding(requireContext().dp(12), requireContext().dp(8), requireContext().dp(12), requireContext().dp(8))
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    setStroke(requireContext().dp(1), borderColor)
+                    cornerRadius = requireContext().dp(4).toFloat()
+                }
+                setOnEditorActionListener { _, actionId, _ ->
+                    if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
+                        (context.getSystemService(android.content.Context.INPUT_METHOD_SERVICE)
+                            as? android.view.inputmethod.InputMethodManager)?.hideSoftInputFromWindow(
+                            windowToken, 0
+                        )
+                        true
+                    } else false
+                }
+                addTextChangedListener(object : android.text.TextWatcher {
+                    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                        searchQuery = s?.toString().orEmpty()
+                        renderChips()
+                    }
+                    override fun afterTextChanged(s: android.text.Editable?) {}
+                })
+            }
+            dialogView.addView(searchBar)
             renderChips()
 
             val scrollView = android.widget.ScrollView(requireContext()).apply {
