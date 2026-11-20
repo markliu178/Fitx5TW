@@ -7,10 +7,10 @@ package org.fcitx.fcitx5.android.data
 import java.io.File
 import java.io.IOException
 
-/** A null target explicitly means the application's data/<profile> directory. */
+/** A null target explicitly means the application's rime/<profile> directory. */
 data class RimeProfileRestorePlan(val destinations: Map<String, File?>) {
     fun validate(manifest: RimeProfileBackup.Manifest, protectedRoots: List<File>) {
-        // Internal profiles default to the application's data/<profile> directory and may be
+        // Internal profiles default to the application's rime/<profile> directory and may be
         // omitted from the plan; every external profile needs an explicit (possibly app) choice.
         val known = (manifest.externalProfiles + manifest.internalProfiles).toSet()
         require(destinations.keys.all { it in known }) { "Unknown Rime profile destination." }
@@ -49,15 +49,33 @@ data class RimeProfileRestorePlan(val destinations: Map<String, File?>) {
     }
 
     internal fun copyApplicationData(extractedRoot: File, stagedAppRoot: File) {
+        // A profile replaced by this restore must not keep a live copy in either layout.
         destinations.keys.forEach { name ->
-            val old = File(stagedAppRoot, "rime/$name")
-            if (old.exists() && !old.deleteRecursively()) throw IOException("Unable to prepare restored Rime directory.")
+            listOf("rime", "data").forEach { layout ->
+                val live = File(stagedAppRoot, "$layout/$name")
+                if (live.exists() && !live.deleteRecursively()) {
+                    throw IOException("Unable to prepare restored Rime directory.")
+                }
+            }
         }
         BackupFileTree.copy(File(extractedRoot, "external"), stagedAppRoot)
         destinations.forEach { (name, target) ->
-            if (target != null) {
-                val payload = File(stagedAppRoot, "rime/$name")
-                if (payload.exists() && !payload.deleteRecursively()) throw IOException("Unable to stage external Rime data.")
+            val internalDir = File(stagedAppRoot, "rime/$name")
+            // Older archives, and external profiles restored into the app, keep the payload
+            // under data/; a profile that stays internal belongs under rime/.
+            val archivedDir = File(stagedAppRoot, "data/$name")
+            if (target == null) {
+                if (!internalDir.exists() && archivedDir.isDirectory) {
+                    internalDir.parentFile!!.mkdirs()
+                    if (!archivedDir.renameTo(internalDir) && !archivedDir.copyRecursively(internalDir, true)) {
+                        throw IOException("Unable to stage restored Rime data.")
+                    }
+                }
+            } else if (internalDir.exists() && !internalDir.deleteRecursively()) {
+                throw IOException("Unable to stage external Rime data.")
+            }
+            if (archivedDir.exists() && !archivedDir.deleteRecursively()) {
+                throw IOException("Unable to stage external Rime data.")
             }
         }
         if (destinations.isNotEmpty()) configure(stagedAppRoot)
@@ -66,7 +84,9 @@ data class RimeProfileRestorePlan(val destinations: Map<String, File?>) {
     internal fun stageExternalProfiles(extractedRoot: File, transaction: UserDataRestoreTransaction) {
         destinations.forEach { (name, target) ->
             if (target != null) transaction.stage(target, copyExisting = false) { staged ->
-                BackupFileTree.copy(File(extractedRoot, "external/data/$name"), staged)
+                val archived = File(extractedRoot, "external/data/$name")
+                val fallback = File(extractedRoot, "external/rime/$name")
+                BackupFileTree.copy(if (archived.isDirectory) archived else fallback, staged)
             }
         }
     }

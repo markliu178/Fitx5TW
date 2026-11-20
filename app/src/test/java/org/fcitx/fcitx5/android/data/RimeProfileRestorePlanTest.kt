@@ -61,7 +61,7 @@ class RimeProfileRestorePlanTest {
         restore(backup, app, File(backup.manifest.originalPaths.getValue("remote")))
         assertPayload(backup.source)
         assertFalse(File(backup.source, "obsolete.userdb").exists())
-        assertFalse(File(app, "data/remote").exists())
+        assertFalse(File(app, "rime/remote").exists())
         assertTrue(File(app, RimeDataDirectoryState.CONFIG_PATH).readText()
             .contains("${hex("remote")}|${hex(backup.source.canonicalPath)}"))
     }
@@ -76,7 +76,7 @@ class RimeProfileRestorePlanTest {
         assertPayload(other)
         assertFalse(File(other, "stale.file").exists())
         assertEquals("source-must-stay", File(backup.source, "my.schema.yaml").readText())
-        assertFalse(File(app, "data/remote").exists())
+        assertFalse(File(app, "rime/remote").exists())
         val config = File(app, RimeDataDirectoryState.CONFIG_PATH).readText()
         assertTrue(config.contains("${hex("remote")}|${hex(other.canonicalPath)}"))
         assertFalse(config.contains(hex(backup.source.canonicalPath)))
@@ -92,17 +92,18 @@ class RimeProfileRestorePlanTest {
         assertPayload(backup.source)
         assertFalse(File(backup.source, "obsolete.userdb").exists())
         assertTrue(File(app, RimeDataDirectoryState.CONFIG_PATH).isFile)
-        assertFalse(File(app, "data/remote").exists())
+        assertFalse(File(app, "rime/remote").exists())
     }
 
     @Test fun applicationDirectoryIsAnExplicitChoiceAndLeavesTheExternalSourceUntouched() {
         val backup = backup()
         write(backup.source, "my.schema.yaml", "source-must-stay")
         val app = temp.newFolder("target-app")
-        write(app, "data/remote/stale.userdb", "stale-private-data")
+        write(app, "rime/remote/stale.userdb", "stale-private-data")
         restore(backup, app, null)
-        assertPayload(File(app, "data/remote"))
-        assertFalse(File(app, "data/remote/stale.userdb").exists())
+        assertPayload(File(app, "rime/remote"))
+        assertFalse(File(app, "rime/remote/stale.userdb").exists())
+        assertFalse(File(app, "data/remote").exists())
         assertEquals("source-must-stay", File(backup.source, "my.schema.yaml").readText())
         val config = File(app, RimeDataDirectoryState.CONFIG_PATH).readText()
         assertTrue(config.contains("ExternalPathsV2=\"\""))
@@ -124,7 +125,9 @@ class RimeProfileRestorePlanTest {
             it.commit()
         }
         assertEquals("one", File(external, "words").readText())
-        assertEquals("two", File(app, "data/two/words").readText())
+        assertEquals("two", File(app, "rime/two/words").readText())
+        assertFalse(File(app, "rime/one").exists())
+        assertFalse(File(app, "data/two").exists())
         assertFalse(File(app, "data/one").exists())
         assertTrue(File(app, RimeDataDirectoryState.CONFIG_PATH).readText().contains("Current=one"))
     }

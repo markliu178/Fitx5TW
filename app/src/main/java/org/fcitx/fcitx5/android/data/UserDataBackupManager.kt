@@ -4,11 +4,13 @@
  */
 package org.fcitx.fcitx5.android.data
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import org.fcitx.fcitx5.android.daemon.FcitxDaemon
 import org.fcitx.fcitx5.android.utils.appContext
+import timber.log.Timber
 import java.io.File
 import java.util.UUID
 
@@ -21,7 +23,16 @@ object UserDataBackupManager {
         var archive: File? = null
         try {
             val state = connection.runOnReady {
-                save()
+                // The dictionary sync only merges userdb text files; the profile files are
+                // copied while the engine is stopped, so a failed sync must not block the
+                // backup (a broken sync directory used to abort every export/restore).
+                try {
+                    save()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Timber.w(e, "Unable to synchronize user dictionaries before backup")
+                }
                 RimeDataDirectoryState.fromConfig(getAddonSubConfig("rime", "profile-manager"),
                     appContext.getExternalFilesDir(null)!!.resolve("rime"))
             }

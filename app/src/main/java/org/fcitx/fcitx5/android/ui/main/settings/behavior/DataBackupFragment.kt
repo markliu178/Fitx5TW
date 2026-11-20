@@ -48,6 +48,7 @@ import org.fcitx.fcitx5.android.utils.importErrorDialog
 import org.fcitx.fcitx5.android.utils.iso8601UTCDateTime
 import org.fcitx.fcitx5.android.utils.settingsColor
 import org.fcitx.fcitx5.android.utils.toast
+import timber.log.Timber
 import java.io.File
 import java.util.UUID
 
@@ -308,7 +309,17 @@ class DataBackupFragment : PaddingPreferenceFragment() {
                         val connectionName = "UserDataRestore-${UUID.randomUUID()}"
                         val connection = FcitxDaemon.connect(connectionName)
                         try {
-                            connection.runOnReady { save() }
+                            connection.runOnReady {
+                                // Restore replaces the profile files wholesale; a failed
+                                // best-effort dictionary sync must not abort it.
+                                try {
+                                    save()
+                                } catch (e: CancellationException) {
+                                    throw e
+                                } catch (e: Exception) {
+                                    Timber.w(e, "Unable to synchronize user dictionaries before restore")
+                                }
+                            }
                             val token = withContext(Dispatchers.IO) {
                                 UserDataManager.validateRestore(backup, plan)
                                 FcitxDaemon.beginUserDataRestore()

@@ -104,8 +104,10 @@ object RimeProfileBackup {
      */
     fun writeProfilesOnly(externalRoot: File, state: RimeDataDirectoryState, zip: ZipOutputStream) {
         val sources = resolveSources(externalRoot, state)
+        // Internal profiles live in rime/ and must keep that layout inside the archive;
+        // external profiles keep the neutral data/ payload the restore picker expects.
         sources.internal.forEach { name ->
-            BackupFileTree.write(File(sources.root, "rime/$name"), "external/data/$name", zip)
+            BackupFileTree.write(File(sources.root, "rime/$name"), "external/rime/$name", zip)
         }
         sources.external.forEach { (name, source) ->
             BackupFileTree.write(source, "external/data/$name", zip)
@@ -146,8 +148,11 @@ object RimeProfileBackup {
             (manifest.version == 1 || manifest.originalPaths.keys == manifest.externalProfiles.toSet())) {
             "Invalid original Rime directory paths."
         }
+        // Archives made before the rime/ migration stored every profile under data/;
+        // current archives keep internal profiles under their real rime/ location.
         (manifest.externalProfiles + manifest.internalProfiles).forEach { name ->
-            require(File(extractedRoot, "external/data/$name").isDirectory) {
+            require(File(extractedRoot, "external/data/$name").isDirectory ||
+                File(extractedRoot, "external/rime/$name").isDirectory) {
                 "The backup is missing a Rime profile directory."
             }
         }

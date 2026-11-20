@@ -64,6 +64,7 @@ internal class DirectRimeConfig(private val context: Context) {
             val userDir = profiles[selected] ?: return
             org.fcitx.fcitx5.android.data.UserDataRestoreRuntime.requirePathReady(context, userDir)
             userDir.mkdirs()
+            normalizeSyncDirectory(userDir)
             // Finish an interrupted resource update before librime can open the profile.
             WanxiangUpdateTransaction.recover(userDir)
         }
@@ -121,6 +122,29 @@ internal class DirectRimeConfig(private val context: Context) {
     private fun isInternal(name: String, file: File): Boolean = runCatching {
         file.canonicalFile == File(dataRoot, name).canonicalFile
     }.getOrDefault(false)
+
+    /**
+     * librime persists an absolute sync_dir in installation.yaml. Profiles moved from data/
+     * to rime/ (or imported with a copied installation.yaml) keep syncing into a directory
+     * that no longer exists, which makes every dictionary sync fail. Rewrite only locations
+     * that live inside our own external files directory; explicit user sync directories stay.
+     */
+    private fun normalizeSyncDirectory(profile: File) {
+        val file = File(profile, "installation.yaml")
+        if (!file.isFile || file.length() > 64 * 1024 || !file.canWrite()) return
+        val lines = runCatching { file.readLines() }.getOrNull() ?: return
+        val index = lines.indexOfFirst { it.startsWith("sync_dir:") }
+        if (index < 0) return
+        val recorded = runCatching {
+            File(lines[index].substringAfter(':').trim().trim('"', '\'')).canonicalFile
+        }.getOrNull() ?: return
+        val desired = runCatching { File(profile, "sync").canonicalFile }.getOrNull() ?: return
+        if (recorded == desired) return
+        val appRoot = runCatching { root.canonicalFile }.getOrNull() ?: return
+        if (!recorded.path.startsWith(appRoot.path + File.separator)) return
+        lines[index] = "sync_dir: ${desired.path}"
+        runCatching { FileUtil.writeAtomically(file, lines.joinToString("\n", postfix = "\n")) }
+    }
 
     fun requireUpdateTarget(name: String, path: String) {
         require(error.isBlank()) { error }
@@ -205,6 +229,7 @@ internal class DirectRimeConfig(private val context: Context) {
         org.fcitx.fcitx5.android.data.UserDataRestoreRuntime.requirePathReady(context, target)
         check(target.isDirectory || target.mkdirs()) { "无法打开目录" }
         check(target.canRead() && target.canWrite()) { "无法访问目录，请检查存储权限" }
+        normalizeSyncDirectory(target)
         WanxiangUpdateTransaction.recover(target)
         persistDirectories(profiles, name)
         current = name

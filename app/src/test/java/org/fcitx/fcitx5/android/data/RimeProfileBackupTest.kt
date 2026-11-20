@@ -23,24 +23,50 @@ class RimeProfileBackupTest {
     @Test fun completeBackupContainsActualExternalDataAndPortableConfiguration() {
         val app = temp.newFolder("app")
         val external = temp.newFolder("syncthing")
-        write(app, "data/rime/default.custom.yaml", "internal schema")
-        write(app, "data/remote/stale.userdb", "stale private data")
+        write(app, "rime/rime/default.custom.yaml", "internal schema")
+        write(app, "rime/remote/stale.userdb", "stale private data")
         val original = write(app, RimeDataDirectoryState.CONFIG_PATH, "ExternalPaths=remote|source-path\n")
         write(external, "my.schema.yaml", "external schema")
         write(external, "words.userdb/000001.ldb", "learned words")
         val state = RimeDataDirectoryState("remote", listOf("rime", "remote"),
-            mapOf("rime" to File(app, "data/rime").absolutePath, "remote" to external.absolutePath))
+            mapOf("rime" to File(app, "rime/rime").absolutePath, "remote" to external.absolutePath))
         val output = ByteArrayOutputStream()
         ZipOutputStream(output).use { RimeProfileBackup.write(app, state, it) }
         val restored = temp.newFolder("restored")
         ZipInputStream(ByteArrayInputStream(output.toByteArray())).use { it.extract(restored) }
+        assertEquals("internal schema", File(restored, "external/rime/rime/default.custom.yaml").readText())
         assertEquals("external schema", File(restored, "external/data/remote/my.schema.yaml").readText())
         assertEquals("learned words", File(restored, "external/data/remote/words.userdb/000001.ldb").readText())
         assertFalse(File(restored, "external/data/remote/stale.userdb").exists())
         assertEquals(state.portableConfig(), File(restored, "external/${RimeDataDirectoryState.CONFIG_PATH}").readText())
         assertEquals(listOf("remote"), RimeProfileBackup.restoredExternalProfiles(restored))
+        assertEquals(listOf("rime"), RimeProfileBackup.readManifest(restored).internalProfiles)
         assertEquals("ExternalPaths=remote|source-path\n", original.readText())
         assertTrue(File(external, "my.schema.yaml").exists())
+    }
+
+    @Test fun schemeBackupKeepsInternalProfilesUnderRimeAndRestoresThemThere() {
+        val app = temp.newFolder("app")
+        write(app, "rime/alpha/default.yaml", "alpha-schema")
+        val state = RimeDataDirectoryState("alpha", listOf("alpha"),
+            mapOf("alpha" to File(app, "rime/alpha").absolutePath))
+        val output = ByteArrayOutputStream()
+        ZipOutputStream(output).use { RimeProfileBackup.writeProfilesOnly(app, state, it) }
+        val extracted = temp.newFolder("scheme-extracted")
+        ZipInputStream(ByteArrayInputStream(output.toByteArray())).use { it.extract(extracted) }
+        assertEquals("alpha-schema", File(extracted, "external/rime/alpha/default.yaml").readText())
+        assertFalse(File(extracted, "external/data/alpha").exists())
+        val manifest = RimeProfileBackup.readManifest(extracted)
+        assertEquals(listOf("alpha"), manifest.internalProfiles)
+        val target = temp.newFolder("scheme-target")
+        val plan = RimeProfileRestorePlan(mapOf<String, File?>("alpha" to null))
+        plan.validate(manifest, listOf(target))
+        UserDataRestoreTransaction().use { transaction ->
+            transaction.stage(target) { staged -> plan.copyApplicationData(extracted, staged) }
+            transaction.commit()
+        }
+        assertEquals("alpha-schema", File(target, "rime/alpha/default.yaml").readText())
+        assertFalse(File(target, "data/alpha").exists())
     }
 
     @Test(expected = IOException::class)
