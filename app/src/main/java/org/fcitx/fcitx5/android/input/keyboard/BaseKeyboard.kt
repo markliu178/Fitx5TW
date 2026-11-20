@@ -3170,15 +3170,24 @@ abstract class BaseKeyboard(
                             delay(50) // key interval
                         }
                         is MacroStep.Combo -> {
-                            Timber.v("executeMacro: Combo keys=%d", step.keys.size)
-                            step.keys.forEach { keyRef ->
+                            // A combo is a key combination (Ctrl+C), not text input: send letters
+                            // as their unshifted key. Uppercase syms like "C" normally imply Shift,
+                            // which would turn Ctrl+C into Ctrl+Shift+C. Users who want Shift add it
+                            // explicitly to the combo.
+                            val keys = step.keys.map { keyRef ->
+                                if (keyRef is KeyRef.Fcitx && keyRef.code.length == 1 &&
+                                    keyRef.code[0].isLetter()
+                                ) keyRef.copy(code = keyRef.code.lowercase()) else keyRef
+                            }
+                            Timber.v("executeMacro: Combo keys=%d", keys.size)
+                            keys.forEach { keyRef ->
                                 when (keyRef) {
                                     is KeyRef.Fcitx -> sendFcitxKeyDown(keyRef.code, macro)
                                     is KeyRef.Android -> sendAndroidKeyDown(keyRef.code, macro)
                                 }
                             }
                             delay(30)
-                            step.keys.reversed().forEach { keyRef ->
+                            keys.reversed().forEach { keyRef ->
                                 when (keyRef) {
                                     is KeyRef.Fcitx -> sendFcitxKeyUp(keyRef.code, macro)
                                     is KeyRef.Android -> sendAndroidKeyUp(keyRef.code, macro)
@@ -3758,21 +3767,17 @@ abstract class BaseKeyboard(
 
     /**
      * Send Android key down event
+     *
+     * Goes through `sendSimulatedKeyEventOrFallback` so that held modifier keys
+     * (Ctrl/Alt/Shift) contribute metaState: a bare `KeyEvent(ACTION_DOWN, keyCode)`
+     * carries metaState 0 and turns Ctrl+C into plain "c".
      */
     private fun sendAndroidKeyDown(keyCode: Int, macro: MacroContext): MacroInputController.Press {
         val press = macro.execution.press(KeyRef.Android(keyCode))
         if (keyCode < 0) return press
-        val originalConnection = macro.service?.currentInputConnection
         press.send(
-            down = { originalConnection?.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, keyCode)) },
-            up = { cancelled ->
-                val current = macro.execution.isCurrent
-                if (current) {
-                    val now = android.os.SystemClock.uptimeMillis()
-                    macro.service?.currentInputConnection?.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_UP,
-                        keyCode, 0, 0, 0, 0, if (cancelled) KeyEvent.FLAG_CANCELED else 0))
-                }
-            }
+            down = { macro.service?.sendSimulatedKeyEventOrFallback(keyCode, true) },
+            up = { macro.service?.sendSimulatedKeyEventOrFallback(keyCode, false) }
         )
         return press
     }
@@ -3782,7 +3787,7 @@ abstract class BaseKeyboard(
      */
     private fun sendAndroidKeyUp(keyCode: Int, macro: MacroContext) {
         macro.execution.release(KeyRef.Android(keyCode)) {
-            if (keyCode >= 0) macro.service?.currentInputConnection?.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, keyCode))
+            if (keyCode >= 0) macro.service?.sendSimulatedKeyEventOrFallback(keyCode, false)
         }
     }
 
