@@ -2226,8 +2226,13 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
         }
     }
 
-    /** 内删手势开始时的预编辑快照（UTF-16 位置与文本）。 */
-    internal data class ComposingTextSnapshot(val cursor: Int, val length: Int, val text: String)
+    /** 内删手势开始时的预编辑快照（UTF-16 位置、文本与输入会话）。 */
+    internal data class ComposingTextSnapshot(
+        val cursor: Int,
+        val length: Int,
+        val text: String,
+        val session: Long
+    )
 
     /**
      * 读取当前正在输入的预编辑文本。没有预编辑时返回 null，调用方据此回退到
@@ -2238,19 +2243,27 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
         if (text.isEmpty()) return null
         // cursor 为 -1 表示引擎没有给出光标位置，按文本末尾处理。
         val cursor = if (text.cursor in 0..text.length) text.cursor else text.length
-        return ComposingTextSnapshot(cursor, text.length, text.toString())
+        return ComposingTextSnapshot(
+            cursor,
+            text.length,
+            text.toString(),
+            FcitxDaemon.currentInputSession
+        )
     }
 
     /**
      * 内删滑动过程中把编码光标移动到 [position]（UTF-16 位置，相对预编辑文本）。
-     * 只在预编辑文本仍与 [expectedPreedit] 一致时生效，避免合成被提交后误动正文。
+     * 只在预编辑文本与会话仍与手势开始时一致时生效，避免合成被提交或切换后误动正文。
      */
-    internal fun moveComposingCursorTo(position: Int, expectedPreedit: String) {
+    internal fun moveComposingCursorTo(
+        position: Int,
+        expectedPreedit: String,
+        expectedSession: Long
+    ) {
         val text = composingText
         if (text.isEmpty() || text.toString() != expectedPreedit) return
         val target = position.coerceIn(0, text.length)
         val codePointPosition = text.codePointCountUntil(target)
-        val expectedSession = FcitxDaemon.currentInputSession
         postFcitxJob {
             moveCursorIfCurrent(codePointPosition, expectedSession, expectedPreedit)
         }
@@ -2259,10 +2272,16 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
     /**
      * 内删抬手：删除预编辑文本中 [start, end) 区间。
      *
-     * 先把光标移到区间起点再统一向前删除，这样不依赖滑动结束时光标实际停在哪一侧。
-     * 预编辑文本已被提交或改变时 [moveCursorIfCurrent] 会失败，本次删除整体跳过。
+     * 先把光标移到区间末尾再向前删除，这样不依赖滑动结束时光标实际停在哪一侧，
+     * 也不依赖引擎对 Delete 的绑定。预编辑文本已提交、改变或会话切换时
+     * [moveCursorIfCurrent] 会失败，本次删除整体跳过。
      */
-    internal fun deleteComposingRange(start: Int, end: Int, expectedPreedit: String) {
+    internal fun deleteComposingRange(
+        start: Int,
+        end: Int,
+        expectedPreedit: String,
+        expectedSession: Long
+    ) {
         val text = composingText
         if (text.isEmpty() || text.toString() != expectedPreedit) return
         val from = start.coerceIn(0, text.length)
@@ -2270,16 +2289,15 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
         if (from == to) return
         val first = if (from < to) from else to
         val last = if (from < to) to else from
-        val firstCodePoint = text.codePointCountUntil(first)
-        val count = text.codePointCountUntil(last) - firstCodePoint
+        val lastCodePoint = text.codePointCountUntil(last)
+        val count = lastCodePoint - text.codePointCountUntil(first)
         if (count <= 0) return
-        val expectedSession = FcitxDaemon.currentInputSession
         postFcitxKeyJob {
-            if (!moveCursorIfCurrent(firstCodePoint, expectedSession, expectedPreedit)) {
+            if (!moveCursorIfCurrent(lastCodePoint, expectedSession, expectedPreedit)) {
                 return@postFcitxKeyJob
             }
             repeat(count) {
-                sendKey(KeySym(FcitxKeyMapping.FcitxKey_Delete), KeyStates.Virtual)
+                sendKey(KeySym(FcitxKeyMapping.FcitxKey_BackSpace), KeyStates.Virtual)
             }
         }
     }

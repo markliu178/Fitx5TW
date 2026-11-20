@@ -1351,7 +1351,7 @@ class KeyEditorForm(
         MaterialAlertDialogBuilder(this)
             .setTitle(R.string.text_keyboard_layout_macro_swipe_left_event)
             .setSingleChoiceItems(labels, values.indexOf(backspaceSwipeLeftMode)) { dialog, which ->
-                backspaceSwipeLeftMode = values.getOrElse(which) { BACKSPACE_SWIPE_LEFT_CLEAR }
+                backspaceSwipeLeftMode = values[which]
                 val draft = buildDraftKeyData()
                 keyData = draft
                 dialog.dismiss()
