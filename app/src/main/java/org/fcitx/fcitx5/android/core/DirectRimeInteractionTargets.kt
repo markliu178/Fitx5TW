@@ -69,45 +69,44 @@ internal class DirectRimeInteractionTargets(private val owner: Owner) {
         return owner.moveRawCursor(target)
     }
 
-    /**
-     * 移动组合文本的编码光标，面板预编辑（PreeditMode=No）下同样可用。
-     *
-     * 与 [moveCursor] 不同，这里不要求客户端预编辑存在，但要求当前快照的编码文本
-     * 与手势开始时一致，避免提交、切会话或换方案后误移动光标。
-     */
-    fun moveCompositionCursor(
-        position: Int,
-        expectedSession: Long,
-        expectedPreedit: String
-    ): Boolean {
-        val value = owner.snapshot ?: return false
+    /** 手势起点只读一次；CommitPreview 是候选预览，不是可编辑编码。 */
+    fun compositionEditAnchor(expectedSession: Long, expectedPreedit: String): CompositionEditAnchor? {
+        val value = owner.snapshot ?: return null
         if (!owner.started || owner.maintenance || !value.ready || value.generation != owner.inputSession ||
-            expectedSession != owner.inputSession || value.preedit != expectedPreedit) return false
-        val raw = owner.rawInput(value) ?: return false
+            expectedSession != owner.inputSession || owner.preeditMode == "CommitPreview" ||
+            value.preedit != expectedPreedit) return null
+        val raw = owner.rawInput(value) ?: return null
+        return CompositionEditAnchor(
+            expectedSession, value.preedit, value.cursorUtf16, raw.text, raw.caretBytes
+        )
+    }
+
+    /** 原始光标可以已经移动，但原始编码文本必须仍与锚点一致。 */
+    private fun rawInputForAnchor(value: Snapshot, anchor: CompositionEditAnchor): RawInputState? {
+        if (!owner.started || owner.maintenance || !value.ready || value.generation != owner.inputSession ||
+            anchor.session != owner.inputSession) return null
+        return owner.rawInput(value)?.takeIf { it.text == anchor.rawText }
+    }
+
+    fun moveCompositionCursor(anchor: CompositionEditAnchor, position: Int): Boolean {
+        val value = owner.snapshot ?: return false
+        val raw = rawInputForAnchor(value, anchor) ?: return false
         val target = preeditCursorToRawBytes(
-            value.preedit, value.cursorUtf16, raw.text, raw.caretBytes, position
+            anchor.preedit, anchor.preeditCaretUtf16, anchor.rawText, anchor.rawCaretBytes, position
         ) ?: return false
         if (target == raw.caretBytes) return true
         return owner.moveRawCursor(target)
     }
 
-    /** 显示区间 [first]..[last] 对应的原始编码字符数，分隔符不计入。 */
-    fun compositionRawCharacterCount(
-        first: Int,
-        last: Int,
-        expectedSession: Long,
-        expectedPreedit: String
-    ): Int? {
+    fun compositionRawCharacterCount(anchor: CompositionEditAnchor, first: Int, last: Int): Int? {
         val value = owner.snapshot ?: return null
-        if (!owner.started || owner.maintenance || !value.ready || value.generation != owner.inputSession ||
-            expectedSession != owner.inputSession || value.preedit != expectedPreedit) return null
-        val raw = owner.rawInput(value) ?: return null
+        rawInputForAnchor(value, anchor) ?: return null
         val rawFirst = preeditCursorToRawBytes(
-            value.preedit, value.cursorUtf16, raw.text, raw.caretBytes, first
+            anchor.preedit, anchor.preeditCaretUtf16, anchor.rawText, anchor.rawCaretBytes, first
         ) ?: return null
         val rawLast = preeditCursorToRawBytes(
-            value.preedit, value.cursorUtf16, raw.text, raw.caretBytes, last
+            anchor.preedit, anchor.preeditCaretUtf16, anchor.rawText, anchor.rawCaretBytes, last
         ) ?: return null
-        return rawCodePointCountBetween(raw.text, rawFirst, rawLast)
+        return rawCodePointCountBetween(anchor.rawText, rawFirst, rawLast)
     }
 }

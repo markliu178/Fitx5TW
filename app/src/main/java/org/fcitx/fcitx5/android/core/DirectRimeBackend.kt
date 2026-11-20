@@ -526,19 +526,12 @@ class DirectRimeBackend(context: Context) : InputEngine {
     override suspend fun moveCursor(position: Int) { onOwner { interactionTargets.moveCursor(position, inputSession, null) } }
     override suspend fun moveCursorIfCurrent(position: Int, expectedSession: Long, expectedPreedit: String) =
         onOwner { interactionTargets.moveCursor(position, expectedSession, expectedPreedit) }
-    override suspend fun moveCompositionCursor(
-        position: Int,
-        expectedSession: Long,
-        expectedPreedit: String
-    ) = onOwner { interactionTargets.moveCompositionCursor(position, expectedSession, expectedPreedit) }
-    override suspend fun compositionRawCharacterCount(
-        first: Int,
-        last: Int,
-        expectedSession: Long,
-        expectedPreedit: String
-    ) = onOwner {
-        interactionTargets.compositionRawCharacterCount(first, last, expectedSession, expectedPreedit)
-    }
+    override suspend fun compositionEditAnchor(expectedSession: Long, expectedPreedit: String) =
+        onOwner { interactionTargets.compositionEditAnchor(expectedSession, expectedPreedit) }
+    override suspend fun moveCompositionCursor(anchor: CompositionEditAnchor, position: Int) =
+        onOwner { interactionTargets.moveCompositionCursor(anchor, position) }
+    override suspend fun compositionRawCharacterCount(anchor: CompositionEditAnchor, first: Int, last: Int) =
+        onOwner { interactionTargets.compositionRawCharacterCount(anchor, first, last) }
     override suspend fun getCandidates(offset: Int, limit: Int): Array<CandidateWord> {
         val expected = snapshot ?: return emptyArray()
         // Snapshot revisions also advance on unhandled key-up. Only cancel a

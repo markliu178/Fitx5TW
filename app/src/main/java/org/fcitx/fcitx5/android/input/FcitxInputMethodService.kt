@@ -65,6 +65,7 @@ import org.fcitx.fcitx5.android.R
 import org.fcitx.fcitx5.android.BuildConfig
 import org.fcitx.fcitx5.android.core.CapabilityFlags
 import org.fcitx.fcitx5.android.core.CapabilityFlag
+import org.fcitx.fcitx5.android.core.CompositionEditAnchor
 import org.fcitx.fcitx5.android.core.FcitxAPI
 import org.fcitx.fcitx5.android.core.FcitxEvent
 import org.fcitx.fcitx5.android.core.FcitxKeyMapping
@@ -387,10 +388,18 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
     /** 拼音栏（面板预编辑）；PreeditMode=No 时组合文本只在这里。 */
     private var panelPreedit = FormattedText.Empty
 
+    /** 内删手势起点；只在服务队列里读取，UI 线程负责清空。 */
+    @Volatile
+    private var innerDeleteAnchor: CompositionEditAnchor? = null
+    private var innerDeleteMoveJob: Job? = null
+
     private fun resetComposingState() {
         composing.clear()
         composingText = FormattedText.Empty
         panelPreedit = FormattedText.Empty
+        innerDeleteAnchor = null
+        innerDeleteMoveJob?.cancel()
+        innerDeleteMoveJob = null
     }
 
     private fun updateStatusIcon(entry: InputMethodEntry = fcitx.runImmediately { inputMethodEntryCached }) {
@@ -2264,9 +2273,22 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
         )
     }
 
+    /** 锚点只在第一次滑动时读取；后续事件不再受显示光标/分隔符变化影响。 */
+    private suspend fun FcitxAPI.innerDeleteAnchorFor(
+        expectedPreedit: String,
+        expectedSession: Long
+    ): CompositionEditAnchor? {
+        innerDeleteAnchor?.takeIf {
+            it.session == expectedSession && it.preedit == expectedPreedit
+        }?.let { return it }
+        val anchor = compositionEditAnchor(expectedSession, expectedPreedit) ?: return null
+        innerDeleteAnchor = anchor
+        return anchor
+    }
+
     /**
      * 内删滑动过程中把编码光标移动到 [position]（UTF-16 位置，相对预编辑文本）。
-     * 只在预编辑文本与会话仍与手势开始时一致时生效，避免合成被提交或切换后误动正文。
+     * 只保留最新目标，避免快速滑动时大量旧任务排队造成光标滞后。
      */
     internal fun moveComposingCursorTo(
         position: Int,
@@ -2276,17 +2298,18 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
         if (expectedPreedit.isEmpty()) return
         val target = position.coerceIn(0, expectedPreedit.length)
         val codePointPosition = expectedPreedit.codePointCount(0, target)
-        postFcitxJob {
-            moveCompositionCursor(codePointPosition, expectedSession, expectedPreedit)
+        innerDeleteMoveJob?.cancel()
+        innerDeleteMoveJob = postFcitxJob {
+            val anchor = innerDeleteAnchorFor(expectedPreedit, expectedSession) ?: return@postFcitxJob
+            moveCompositionCursor(anchor, codePointPosition)
         }
     }
 
     /**
      * 内删抬手：删除预编辑文本中 [start, end) 区间。
      *
-     * 先把光标移到区间末尾再向前删除，这样不依赖滑动结束时光标实际停在哪一侧，
-     * 也不依赖引擎对 Delete 的绑定。预编辑文本已提交、改变或会话切换时
-     * [moveCompositionCursor] 会失败，本次删除整体跳过。
+     * 区间与退格次数都按手势起点的锚点计算；先把光标移到区间末尾再向前删除。
+     * 原始编码已改变或会话切换时，本次删除整体跳过。
      */
     internal fun deleteComposingRange(
         start: Int,
@@ -2303,15 +2326,15 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
         val firstCodePoint = expectedPreedit.codePointCount(0, first)
         val lastCodePoint = expectedPreedit.codePointCount(0, last)
         if (lastCodePoint <= firstCodePoint) return
+        innerDeleteMoveJob?.cancel()
+        innerDeleteMoveJob = null
         postFcitxKeyJob {
+            val anchor = innerDeleteAnchorFor(expectedPreedit, expectedSession) ?: return@postFcitxKeyJob
             // 拼音栏可能插入音节分隔符，退格次数要按原始编码字符计算。
-            val count = compositionRawCharacterCount(
-                firstCodePoint, lastCodePoint, expectedSession, expectedPreedit
-            ) ?: return@postFcitxKeyJob
+            val count = compositionRawCharacterCount(anchor, firstCodePoint, lastCodePoint)
+                ?: return@postFcitxKeyJob
             if (count <= 0) return@postFcitxKeyJob
-            if (!moveCompositionCursor(lastCodePoint, expectedSession, expectedPreedit)) {
-                return@postFcitxKeyJob
-            }
+            if (!moveCompositionCursor(anchor, lastCodePoint)) return@postFcitxKeyJob
             repeat(count) {
                 sendKey(KeySym(FcitxKeyMapping.FcitxKey_BackSpace), KeyStates.Virtual)
             }

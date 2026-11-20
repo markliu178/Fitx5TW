@@ -7,6 +7,18 @@ package org.fcitx.fcitx5.android.core
 import kotlinx.coroutines.flow.SharedFlow
 
 /**
+ * 内删手势起点的固定映射锚点。显示预编辑、显示光标与原始编码必须来自同一快照；
+ * 后续移动只改原始光标，不重新读取可能已经变化的显示光标。
+ */
+data class CompositionEditAnchor(
+    val session: Long,
+    val preedit: String,
+    val preeditCaretUtf16: Int,
+    val rawText: String,
+    val rawCaretBytes: Int
+)
+
+/**
  * API of fcitx that hides lifecycle stuffs from [Fcitx]
  *
  * Functions can be safely used in any coroutine,
@@ -92,28 +104,17 @@ interface FcitxAPI {
         return true
     }
 
-    /**
-     * 移动组合文本里的编码光标，不要求 [preeditMode] 为 `ComposingText`。
-     *
-     * [position] 是按 [expectedPreedit] 的 Unicode 码点计数；只在会话与编码文本
-     * 仍与手势开始时一致时生效。
-     */
-    suspend fun moveCompositionCursor(
-        position: Int,
-        expectedSession: Long,
-        expectedPreedit: String
-    ): Boolean = moveCursorIfCurrent(position, expectedSession, expectedPreedit)
+    /** 读取内删手势起点的固定锚点；会话或显示预编辑不一致时返回 null。 */
+    suspend fun compositionEditAnchor(expectedSession: Long, expectedPreedit: String): CompositionEditAnchor?
 
     /**
-     * 计算 [first]..[last]（[expectedPreedit] 的 Unicode 码点区间）对应多少
-     * 原始编码字符，用于按退格次数删除。显示用的分隔符不计入。
+     * 按手势起点的 [anchor] 移动编码光标。[position] 是锚点显示预编辑的 Unicode
+     * 码点位置；原始编码文本变化后拒绝移动。
      */
-    suspend fun compositionRawCharacterCount(
-        first: Int,
-        last: Int,
-        expectedSession: Long,
-        expectedPreedit: String
-    ): Int? = null
+    suspend fun moveCompositionCursor(anchor: CompositionEditAnchor, position: Int): Boolean
+
+    /** 计算锚点显示区间 [first]..[last] 对应的原始编码字符数，分隔符不计入。 */
+    suspend fun compositionRawCharacterCount(anchor: CompositionEditAnchor, first: Int, last: Int): Int?
 
     suspend fun availableIme(): Array<InputMethodEntry>
     suspend fun enabledIme(): Array<InputMethodEntry>
