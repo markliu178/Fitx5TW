@@ -1675,12 +1675,12 @@ class TextKeyboard private constructor(
                 }
             }
             is KeyAction.SymAction -> {
-                // 点击空格归位 Shift：空格走 SymAction（不经过 FcitxKeyAction 的大写转换分支），
-                // 需单独消费 Once。滑动产生的方向键（Left/Right/Up/Down）不是空格，不会命中，
-                // 因此保持「滑动锁定、点击归位」：滑动不消费 Shift，点击空格才归位。Lock 不在
-                // 此归位（锁定态下打字/空格都保持大写），与 FcitxKeyAction 分支一致。
+                // 点击空格或退格归位 Shift：它们走 SymAction（不经过 FcitxKeyAction 的大写
+                // 转换分支），需单独消费 Once。滑动产生的方向键（Left/Right/Up/Down）不会
+                // 命中，因此保持「滑动锁定、点击归位」。Lock 不在此归位，与字母键分支一致。
                 if (source == KeyActionListener.Source.Keyboard &&
-                    action.sym.sym == FcitxKeyMapping.FcitxKey_space &&
+                    (action.sym.sym == FcitxKeyMapping.FcitxKey_space ||
+                        action.sym.sym == FcitxKeyMapping.FcitxKey_BackSpace) &&
                     capsState == CapsState.Once
                 ) {
                     switchCapsState()
