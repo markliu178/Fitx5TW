@@ -1,21 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 package org.fcitx.fcitx5.android.ui.main.settings.im
 
-import android.Manifest
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
-import android.os.Environment
-import android.provider.DocumentsContract
 import android.provider.OpenableColumns
-import android.provider.Settings
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.appbar.MaterialToolbar as Toolbar
 import com.google.android.material.button.MaterialButton
@@ -29,15 +22,13 @@ import org.fcitx.fcitx5.android.R
 import org.fcitx.fcitx5.android.core.RawConfig
 import org.fcitx.fcitx5.android.daemon.FcitxDaemon
 import org.fcitx.fcitx5.android.data.RimeDataDirectoryState
-import org.fcitx.fcitx5.android.ui.main.ShareReceiveDirectoryPicker
 import org.fcitx.fcitx5.android.ui.common.SettingsUiActivity
 import org.fcitx.fcitx5.android.ui.common.OperationStatusView
 import org.fcitx.fcitx5.android.ui.common.OperationStatusView.State
-import org.fcitx.fcitx5.android.utils.ExternalRimeStorage
 import java.io.File
 import java.util.zip.ZipFile
 
-/** Imports a profile ZIP into a new profile directory chosen by the user. */
+/** Imports a profile ZIP under the app's internal rime/ directory. */
 class RimeImportActivity : SettingsUiActivity() {
     private val connection by lazy { FcitxDaemon.connect(javaClass.name) }
     private lateinit var status: OperationStatusView
@@ -47,58 +38,9 @@ class RimeImportActivity : SettingsUiActivity() {
     private lateinit var choose: MaterialButton
     private var pendingArchivePath: String? = null
     private var pendingArchiveName: String? = null
-    private var pendingDestinationPath: String? = null
-    private var pendingFallbackMessage: String? = null
-    private var pendingSelectionStep: String? = null
-    private val appDirectoryPicker by lazy { ShareReceiveDirectoryPicker(this) }
 
     private val zipPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) copyArchiveAndChooseDestination(uri)
-    }
-
-    private val destinationPicker = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-        val archive = pendingArchiveFile()
-        if (archive == null) {
-            pendingArchivePath = null
-            pendingArchiveName = null
-            pendingDestinationPath = null
-            pendingSelectionStep = null
-            choose.isEnabled = true
-            showStatus(R.string.direct_rime_archive_missing, State.ERROR)
-            return@registerForActivityResult
-        }
-        if (uri == null) {
-            cancelPendingImport()
-            return@registerForActivityResult
-        }
-        val destination = resolveDestination(uri)
-        if (destination == null) {
-            failPendingImport(getString(R.string.addon_dir_profile_external_dir_invalid))
-            return@registerForActivityResult
-        }
-        pendingSelectionStep = null
-        requestStorageAccess(destination)
-    }
-
-    private val allFilesAccessLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) {
-        if (hasExternalStorageAccess()) {
-            pendingDestinationPath?.let { importPendingArchive(it) }
-                ?: failPendingImport(getString(R.string.addon_dir_profile_external_dir_invalid))
-        } else {
-            offerAppDirectoryFallback(getString(R.string.addon_dir_profile_all_files_permission_required))
-        }
-    }
-
-    private val legacyStoragePermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            pendingDestinationPath?.let { importPendingArchive(it) }
-                ?: failPendingImport(getString(R.string.addon_dir_profile_external_dir_invalid))
-        }
-        else offerAppDirectoryFallback(getString(R.string.addon_dir_profile_storage_permission_required))
+        if (uri != null) copyArchiveAndProceed(uri)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -107,15 +49,6 @@ class RimeImportActivity : SettingsUiActivity() {
             ?.takeIf(::isPendingArchive)
         pendingArchiveName = if (pendingArchivePath != null) {
             savedInstanceState?.getString(STATE_PENDING_ARCHIVE_NAME)
-        } else null
-        pendingDestinationPath = if (pendingArchivePath != null) {
-            savedInstanceState?.getString(STATE_PENDING_DESTINATION)
-        } else null
-        pendingSelectionStep = if (pendingArchivePath != null) {
-            savedInstanceState?.getString(STATE_PENDING_SELECTION_STEP)
-        } else null
-        pendingFallbackMessage = if (pendingArchivePath != null) {
-            savedInstanceState?.getString(STATE_PENDING_FALLBACK)
         } else null
         connection
         val padding = (20 * resources.displayMetrics.density).toInt()
@@ -169,14 +102,9 @@ class RimeImportActivity : SettingsUiActivity() {
         root.addView(ScrollView(this).apply { addView(content) })
         setContentView(root)
         setSupportActionBar(toolbar)
-        when {
-            pendingFallbackMessage != null -> offerAppDirectoryFallback(pendingFallbackMessage!!)
-            pendingSelectionStep == STEP_DESTINATION_CHOICE -> showDestinationChoice()
-            pendingSelectionStep == STEP_APP_DIRECTORY -> chooseAppDirectory()
-        }
     }
 
-    private fun copyArchiveAndChooseDestination(uri: Uri) {
+    private fun copyArchiveAndProceed(uri: Uri) {
         choose.isEnabled = false
         pendingArchiveName = suggestedProfileName(uri)
         showStatus(R.string.direct_rime_reading_archive, State.WORKING)
@@ -208,7 +136,10 @@ class RimeImportActivity : SettingsUiActivity() {
                 showStatus(R.string.direct_rime_validating_archive, State.WORKING)
                 withContext(Dispatchers.IO) { validateRimeArchive(copiedArchive) }
                 pendingArchivePath = copiedArchive.absolutePath
-                showDestinationChoice()
+                promptProfileName(pendingArchiveName ?: "rime-scheme") { name ->
+                    if (name == null) cancelPendingImport()
+                    else importArchive(copiedArchive, name)
+                }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 archive?.delete()
                 throw e
@@ -216,9 +147,6 @@ class RimeImportActivity : SettingsUiActivity() {
                 archive?.delete()
                 pendingArchivePath = null
                 pendingArchiveName = null
-                pendingDestinationPath = null
-                pendingSelectionStep = null
-                pendingFallbackMessage = null
                 choose.isEnabled = true
                 showStatus(R.string.ui_operation_failed, State.ERROR,
                     getString(R.string.direct_rime_import_failed, e.message.orEmpty()))
@@ -246,154 +174,6 @@ class RimeImportActivity : SettingsUiActivity() {
             }
         }.getOrDefault(false)
         require(hasRootSchema) { getString(R.string.direct_rime_archive_not_profile) }
-    }
-
-    private fun showDestinationChoice() {
-        pendingSelectionStep = STEP_DESTINATION_CHOICE
-        showStatus(R.string.direct_rime_choose_destination)
-        MaterialAlertDialogBuilder(this)
-            .setTitle(R.string.direct_rime_choose_destination)
-            .setItems(arrayOf(
-                getString(R.string.direct_rime_app_directory),
-                getString(R.string.direct_rime_external_directory)
-            )) { _, which ->
-                when (which) {
-                    0 -> {
-                        pendingSelectionStep = STEP_APP_DIRECTORY
-                        chooseAppDirectory()
-                    }
-                    1 -> {
-                        pendingSelectionStep = STEP_EXTERNAL_PICKER
-                        destinationPicker.launch(null)
-                    }
-                }
-            }
-            .setNegativeButton(android.R.string.cancel) { _, _ -> cancelPendingImport() }
-            .setOnCancelListener { cancelPendingImport() }
-            .show()
-    }
-
-    private fun chooseAppDirectory() {
-        pendingSelectionStep = STEP_APP_DIRECTORY
-        lifecycleScope.launch {
-            try {
-                val relativePath = appDirectoryPicker.chooseTargetDirectory(
-                    appDirectoryPicker.lastDirectoryOr("shared")
-                )
-                if (relativePath == null) {
-                    cancelPendingImport()
-                    return@launch
-                }
-                val directory = appDirectoryPicker.resolveDirectory(relativePath)
-                pendingSelectionStep = null
-                importPendingArchive(directory.absolutePath, relativePath)
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                failPendingImport(getString(R.string.direct_rime_import_failed, e.message.orEmpty()))
-            }
-        }
-    }
-
-    private fun requestStorageAccess(destination: String) {
-        pendingDestinationPath = destination
-        pendingSelectionStep = STEP_EXTERNAL_PERMISSION
-        when (ExternalRimeStorage.accessForSdk(Build.VERSION.SDK_INT)) {
-            ExternalRimeStorage.Access.LegacyPermission -> {
-                if (hasExternalStorageAccess()) importPendingArchive(destination)
-                else legacyStoragePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-            }
-            ExternalRimeStorage.Access.Unsupported ->
-                offerAppDirectoryFallback(getString(R.string.addon_dir_profile_android10_unsupported))
-            ExternalRimeStorage.Access.AllFilesPermission -> {
-                if (hasExternalStorageAccess()) importPendingArchive(destination)
-                else requestAllFilesAccess()
-            }
-        }
-    }
-
-    private fun offerAppDirectoryFallback(message: String) {
-        pendingFallbackMessage = message
-        pendingSelectionStep = STEP_APP_FALLBACK
-        MaterialAlertDialogBuilder(this)
-            .setTitle(R.string.direct_rime_choose_destination)
-            .setMessage(message)
-            .setPositiveButton(R.string.direct_rime_choose_app_directory) { _, _ ->
-                pendingFallbackMessage = null
-                pendingSelectionStep = STEP_APP_DIRECTORY
-                chooseAppDirectory()
-            }
-            .setNegativeButton(android.R.string.cancel) { _, _ ->
-                pendingFallbackMessage = null
-                cancelPendingImport()
-            }
-            .setOnCancelListener {
-                pendingFallbackMessage = null
-                cancelPendingImport()
-            }
-            .show()
-    }
-
-    private fun requestAllFilesAccess() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-            failPendingImport(getString(R.string.addon_dir_profile_all_files_permission_required))
-            return
-        }
-        val intent = Intent(
-            Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
-            Uri.parse("package:$packageName")
-        )
-        try {
-            allFilesAccessLauncher.launch(intent)
-        } catch (_: Exception) {
-            try {
-                allFilesAccessLauncher.launch(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
-            } catch (e: Exception) {
-                offerAppDirectoryFallback(e.message ?: getString(R.string.addon_dir_profile_all_files_permission_required))
-            }
-        }
-    }
-
-    private fun hasExternalStorageAccess(): Boolean = when (ExternalRimeStorage.accessForSdk(Build.VERSION.SDK_INT)) {
-        ExternalRimeStorage.Access.LegacyPermission -> ContextCompat.checkSelfPermission(
-            this, Manifest.permission.WRITE_EXTERNAL_STORAGE
-        ) == PackageManager.PERMISSION_GRANTED
-        ExternalRimeStorage.Access.Unsupported -> false
-        ExternalRimeStorage.Access.AllFilesPermission ->
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && Environment.isExternalStorageManager()
-    }
-
-    private fun resolveDestination(uri: Uri): String? = runCatching {
-        val documentId = DocumentsContract.getTreeDocumentId(uri)
-        ExternalRimeStorage.absolutePath(
-            uri.authority,
-            documentId,
-            Environment.getExternalStorageDirectory().absolutePath
-        )?.let { File(it).canonicalPath }
-    }.getOrNull()
-
-    private fun isPendingArchive(path: String): Boolean = runCatching {
-        val file = File(path)
-        file.isFile && file.canonicalFile.parentFile == File(cacheDir, "rime-import").canonicalFile
-    }.getOrDefault(false)
-
-    private fun pendingArchiveFile(): File? = pendingArchivePath?.takeIf(::isPendingArchive)?.let(::File)
-
-    private fun importPendingArchive(destination: String?, appRelativePath: String? = null) {
-        val archive = pendingArchiveFile()
-        if (archive == null) {
-            pendingArchivePath = null
-            pendingArchiveName = null
-            pendingDestinationPath = null
-            pendingSelectionStep = null
-            choose.isEnabled = true
-            showStatus(R.string.direct_rime_archive_missing, State.ERROR)
-            return
-        }
-        promptProfileName(pendingArchiveName ?: "rime-scheme") { name ->
-            if (name == null) cancelPendingImport()
-            else importArchive(archive, destination.orEmpty(), appRelativePath, name)
-        }
     }
 
     private fun suggestedProfileName(uri: Uri): String {
@@ -455,15 +235,11 @@ class RimeImportActivity : SettingsUiActivity() {
         dialog.show()
     }
 
-    private fun importArchive(archive: File, destination: String, appRelativePath: String?, name: String) {
+    private fun importArchive(archive: File, name: String) {
         pendingArchivePath = null
         pendingArchiveName = null
-        pendingDestinationPath = null
-        pendingFallbackMessage = null
-        pendingSelectionStep = null
-        val target = getString(R.string.ui_import_destination,
-            destination.ifBlank { appRelativePath ?: getString(R.string.direct_rime_app_directory) })
-        showStatus(R.string.direct_rime_importing, State.WORKING, target)
+        showStatus(R.string.direct_rime_importing, State.WORKING,
+            getString(R.string.ui_import_destination, getString(R.string.direct_rime_app_directory)))
         lifecycleScope.launch {
             try {
                 connection.runOnReady {
@@ -472,18 +248,17 @@ class RimeImportActivity : SettingsUiActivity() {
                         "import-profile",
                         RawConfig(arrayOf(
                             RawConfig("Archive", archive.absolutePath),
-                            RawConfig("Destination", destination),
                             RawConfig("Name", name)
                         ))
                     )
                 }
-                appRelativePath?.let(appDirectoryPicker::rememberDirectory)
-                showStatus(R.string.direct_rime_imported, State.SUCCESS, target)
+                showStatus(R.string.direct_rime_imported, State.SUCCESS,
+                    getString(R.string.ui_import_destination, getString(R.string.direct_rime_app_directory)))
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
                 showStatus(R.string.ui_operation_failed, State.ERROR,
-                    getString(R.string.direct_rime_import_failed, e.message.orEmpty()) + "\n" + target)
+                    getString(R.string.direct_rime_import_failed, e.message.orEmpty()))
             } finally {
                 archive.delete()
                 choose.isEnabled = true
@@ -495,16 +270,8 @@ class RimeImportActivity : SettingsUiActivity() {
         pendingArchiveFile()?.delete()
         pendingArchivePath = null
         pendingArchiveName = null
-        pendingDestinationPath = null
-        pendingFallbackMessage = null
-        pendingSelectionStep = null
         choose.isEnabled = true
         showStatus(R.string.direct_rime_import_cancelled)
-    }
-
-    private fun failPendingImport(message: String) {
-        cancelPendingImport()
-        showStatus(R.string.ui_operation_failed, State.ERROR, message)
     }
 
     private fun showStatus(title: Int, state: State = State.IDLE, details: String = "") {
@@ -514,8 +281,14 @@ class RimeImportActivity : SettingsUiActivity() {
         status.show(statusTitle, statusDetails, state)
     }
 
+    private fun isPendingArchive(path: String): Boolean = runCatching {
+        val file = File(path)
+        file.isFile && file.canonicalFile.parentFile == File(cacheDir, "rime-import").canonicalFile
+    }.getOrDefault(false)
+
+    private fun pendingArchiveFile(): File? = pendingArchivePath?.takeIf(::isPendingArchive)?.let(::File)
+
     override fun onSaveInstanceState(outState: Bundle) {
-        // An interrupted operation must not be restored as a permanently spinning UI.
         if (statusState != State.WORKING && statusTitle.isNotEmpty()) {
             outState.putString("ui_status_title", statusTitle)
             outState.putString("ui_status_details", statusDetails)
@@ -523,9 +296,6 @@ class RimeImportActivity : SettingsUiActivity() {
         }
         outState.putString(STATE_PENDING_ARCHIVE, pendingArchivePath)
         outState.putString(STATE_PENDING_ARCHIVE_NAME, pendingArchiveName)
-        outState.putString(STATE_PENDING_DESTINATION, pendingDestinationPath)
-        outState.putString(STATE_PENDING_FALLBACK, pendingFallbackMessage)
-        outState.putString(STATE_PENDING_SELECTION_STEP, pendingSelectionStep)
         super.onSaveInstanceState(outState)
     }
 
@@ -543,14 +313,6 @@ class RimeImportActivity : SettingsUiActivity() {
     private companion object {
         const val STATE_PENDING_ARCHIVE = "pending_rime_import_archive"
         const val STATE_PENDING_ARCHIVE_NAME = "pending_rime_import_archive_name"
-        const val STATE_PENDING_DESTINATION = "pending_rime_import_destination"
-        const val STATE_PENDING_FALLBACK = "pending_rime_import_fallback"
-        const val STATE_PENDING_SELECTION_STEP = "pending_rime_import_selection_step"
-        const val STEP_DESTINATION_CHOICE = "destination_choice"
-        const val STEP_APP_DIRECTORY = "app_directory"
-        const val STEP_APP_FALLBACK = "app_fallback"
-        const val STEP_EXTERNAL_PICKER = "external_picker"
-        const val STEP_EXTERNAL_PERMISSION = "external_permission"
         const val MAX_ARCHIVE_BYTES = 512L * 1024 * 1024
     }
 }
