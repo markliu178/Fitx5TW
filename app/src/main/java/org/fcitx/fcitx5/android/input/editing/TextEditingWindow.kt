@@ -91,14 +91,17 @@ class TextEditingWindow : InputWindow.ExtendedInputWindow<TextEditingWindow>(Tex
         ui.cutButton.setOnClickListener {
             userSelection = false
             service.currentInputConnection?.performContextMenuAction(android.R.id.cut)
+            service.cancelSelection()
         }
         ui.copyButton.setOnClickListener {
             userSelection = false
             service.currentInputConnection?.performContextMenuAction(android.R.id.copy)
+            service.cancelSelection()
         }
         ui.pasteButton.setOnClickListener {
             userSelection = false
             service.currentInputConnection?.performContextMenuAction(android.R.id.paste)
+            service.cancelSelection()
         }
         ui.backspaceButton.onClickWithRepeating {
             userSelection = false

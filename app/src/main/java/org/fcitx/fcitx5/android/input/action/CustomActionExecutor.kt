@@ -58,6 +58,9 @@ private val FCITX_KEY_TO_ANDROID = mapOf(
 ) + ('A'..'Z').associate { it.toString() to KeyEvent.KEYCODE_A + (it - 'A') } +
     ('0'..'9').associate { it.toString() to KeyEvent.KEYCODE_0 + (it - '0') }
 
+/** 执行后应收起当前选区的编辑动作。 */
+private val SELECTION_CLEARING_EDITS = setOf("copy", "cut", "paste")
+
 private val EDIT_ACTION_MAP = mapOf(
     "copy" to android.R.id.copy,
     "cut" to android.R.id.cut,
@@ -143,7 +146,13 @@ fun executeMacroSteps(steps: List<MacroStep>, service: FcitxInputMethodService, 
             is MacroStep.Edit -> {
                 if (step.action.isNotBlank()) hasOsLConsumingStep = true
                 val menuId = EDIT_ACTION_MAP[step.action]
-                if (menuId != null) service.currentInputConnection?.performContextMenuAction(menuId)
+                if (menuId != null) {
+                    service.currentInputConnection?.performContextMenuAction(menuId)
+                    // 复制/剪切/粘贴后取消选区，避免选区一直悬着。
+                    if (step.action.lowercase() in SELECTION_CLEARING_EDITS) {
+                        service.cancelSelection()
+                    }
+                }
             }
             is MacroStep.AppAction -> {
                 if (step.id.isNotBlank()) hasOsLConsumingStep = true

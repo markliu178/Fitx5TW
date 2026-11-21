@@ -135,19 +135,18 @@ class HorizontalCandidateComponent :
     private fun candidateItemHorizontalPadding(): Int = context.dp(ITEM_HORIZONTAL_PADDING_DP)
 
     companion object {
-        private const val ITEM_MIN_WIDTH_DP = 40
+        private const val ITEM_MIN_WIDTH_DP = 32
 
         /**
          * 格子边缘 ↔ 高亮之间的外间距（dp），**四边相同**：左右决定格子之间的留白，上下决定
          * 高亮距格子上下的距离（高亮不再上下贴边）。
          *
-         * 取 4，与 boomker/fcitx5-android 的 `HORIZONTAL_CANDIDATE_OUTER_PADDING_DP` /
-         * `HORIZONTAL_CANDIDATE_VERTICAL_PADDING_DP`（两者同值）一致。历史值是 10：那时高亮直接
+         * 取 2：候选项之间只留很窄的外间距，避免竖线两侧大片空白。历史值是 10：那时高亮直接
          * 铺满整格，格子间距就是这 10dp；现在高亮改画在内层 content 上、格子留白由「外间距 +
-         * 高亮边距」共同构成，若外间距仍留 10，则最小宽格子留给文字的可用宽只剩
-         * `40 − 2*10 − 2*8 = 4dp`，短候选会被 AutoScaleTextView 压扁。
+         * 高亮边距」共同构成。当前最小宽格子留给文字的可用宽为
+         * `32 − 2*2 − 2*5 = 18dp`，短候选仍有足够宽度显示。
          */
-        private const val ITEM_HORIZONTAL_PADDING_DP = 4
+        private const val ITEM_HORIZONTAL_PADDING_DP = 2
 
         fun itemMinWidthDp(): Int = ITEM_MIN_WIDTH_DP
 
@@ -493,7 +492,7 @@ class HorizontalCandidateComponent :
             val text = buildSpannedString {
                 append(candidate.text)
                 if (candidate.comment.isNotBlank()) {
-                    if (candidate.spaceBetweenComment) append(' ')
+                    if (candidate.spaceBetweenComment) append('\u2009')
                     inSpans(
                         CustomTypefaceSpan(commentFont),
                         AbsoluteSizeSpan(commentSizePx, false),
@@ -571,7 +570,9 @@ class HorizontalCandidateComponent :
                 // re-read it here instead of on every candidate update (see E5).
                 invalidateMaxSpanCount()
                 if (fillStyle == AutoFillWidth) {
-                    layoutMinWidth = w / maxSpanCount() - dividerDrawable.intrinsicWidth
+                    // 不再按屏幕宽度均分强制格宽：仅在一行放得下时才拉伸填满，
+                    // 候选较多时保持紧凑（见 updateCandidates）。
+                    layoutMinWidth = 0
                 }
             }
         }.apply {
@@ -695,15 +696,12 @@ class HorizontalCandidateComponent :
                 secondLayoutPassNeeded = false
             }
             AutoFillWidth -> {
-                layoutMinWidth = view.width / maxSpanCount - dividerDrawable.intrinsicWidth
-                val fewCandidates = candidates.size < maxSpanCount
-                // P1a: predict the overflow ([^2]) that the second layout pass would
-                // discover; when predicted, apply its outcome (stretch evenly via
-                // flexGrow=1) up front so the extra measure/layout pass is skipped.
-                val predictedOverflow = fewCandidates && predictRowOverflow(candidates)
-                layoutFlexGrow = if (!fewCandidates || predictedOverflow) 1f else 0f
-                // [^1] total candidates count < maxSpanCount
-                secondLayoutPassNeeded = fewCandidates && !predictedOverflow
+                // 一行放得下才拉伸填满；放不下就按文字宽紧凑排列，避免每个候选都被
+                // 强行拉宽、导致候选项之间（竖线两侧）出现大片空白。
+                layoutMinWidth = 0
+                val overflow = predictRowOverflow(candidates)
+                layoutFlexGrow = if (overflow) 0f else 1f
+                secondLayoutPassNeeded = false
                 secondLayoutPassDone = false
             }
             AlwaysFillWidth -> {

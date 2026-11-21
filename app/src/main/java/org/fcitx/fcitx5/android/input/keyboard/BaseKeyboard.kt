@@ -3460,6 +3460,10 @@ abstract class BaseKeyboard(
             "undo" -> ic.performContextMenuAction(android.R.id.undo)
             "redo" -> ic.performContextMenuAction(android.R.id.redo)
         }
+        // 复制/剪切/粘贴后取消选区，避免选区一直悬着。
+        if (action.lowercase() in setOf("copy", "cut", "paste")) {
+            service.cancelSelection()
+        }
     }
 
     private fun executeAppAction(actionId: String) {

@@ -251,10 +251,10 @@ class ThemePrefs(sharedPreferences: SharedPreferences) :
     // 文字贴着高亮框（且候选变长/被 flexGrow 拉宽时还会再变）。现在高亮层宽度恒等于
     // 「文字 + 左右各本项」，间距与候选长短、拉伸都无关。
     //
-    // 默认值 8dp 与 boomker/fcitx5-android 的 HORIZONTAL_CANDIDATE_HIGHLIGHT_PADDING_DP 一致；
+    // 默认值调小到 5dp，让候选高亮与文字更紧凑、一行能多放候选；
     // 改默认值不影响已经调过此项的老用户（SharedPreferences 里存过值就以存值为准）。
     val candidateBarHighlightInset =
-        int(R.string.candidate_bar_highlight_inset, "candidate_bar_highlight_inset", 8, 0, 24, "dp")
+        int(R.string.candidate_bar_highlight_inset, "candidate_bar_highlight_inset", 5, 0, 24, "dp")
 
     enum class PunctuationPosition(override val stringRes: Int) : ManagedPreferenceEnum {
         None(R.string.punctuation_pos_none),

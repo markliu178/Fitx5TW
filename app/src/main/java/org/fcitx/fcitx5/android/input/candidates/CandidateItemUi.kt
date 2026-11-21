@@ -316,7 +316,8 @@ class CandidateItemUi(
             }
             if (candidate.comment.isNotBlank()) {
                 if (candidate.spaceBetweenComment) {
-                    append(" ")
+                    // 用窄空格代替普通空格，让注释更贴近正文、一行能多放候选。
+                    append('\u2009')
                 }
                 inSpans(CustomTypefaceSpan(commentTypeface), AbsoluteSizeSpan(commentSizePx, false)) {
                     color(altFg) {

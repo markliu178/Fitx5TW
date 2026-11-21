@@ -38,6 +38,25 @@ internal fun interface NumericLayoutFallbackListener {
     fun onNumericLayoutOverrideInvalidated()
 }
 
+/** 扩展选区用的 Shift 引用。 */
+private val SHIFT_KEY_REF = KeyRef.Fcitx("Shift_L")
+
+/** 与空格键滑动一致的导航键：Shift 激活时改为扩展选区。 */
+private val NAVIGATION_FCITX_KEYS = setOf(
+    "Left", "Right", "Up", "Down", "Page_Up", "Page_Down", "Home", "End"
+)
+
+private val NAVIGATION_ANDROID_KEYCODES = setOf(
+    android.view.KeyEvent.KEYCODE_DPAD_LEFT,
+    android.view.KeyEvent.KEYCODE_DPAD_RIGHT,
+    android.view.KeyEvent.KEYCODE_DPAD_UP,
+    android.view.KeyEvent.KEYCODE_DPAD_DOWN,
+    android.view.KeyEvent.KEYCODE_PAGE_UP,
+    android.view.KeyEvent.KEYCODE_PAGE_DOWN,
+    android.view.KeyEvent.KEYCODE_MOVE_HOME,
+    android.view.KeyEvent.KEYCODE_MOVE_END,
+)
+
 @SuppressLint("ViewConstructor")
 class TextKeyboard private constructor(
     context: Context,
@@ -1799,7 +1818,35 @@ class TextKeyboard private constructor(
             switchCapsState()
         }
 
-        return action.copy(steps = transformedSteps)
+        // Shift 激活（单击临时 / 长按锁定）时，导航类按键带上 Shift，扩展选区而不是
+        // 移动光标——与空格键滑动光标的行为一致。滑动本身不消费 Shift。
+        val shiftActive = capsState != CapsState.None
+        val finalSteps = if (!shiftActive) transformedSteps else transformedSteps.flatMap { step ->
+            when (step) {
+                is MacroStep.Tap -> step.keys.flatMap { key ->
+                    if (isNavigationKeyRef(key)) listOf(
+                        MacroStep.Down(listOf(SHIFT_KEY_REF)),
+                        MacroStep.Tap(listOf(key)),
+                        MacroStep.Up(listOf(SHIFT_KEY_REF)),
+                    ) else listOf(MacroStep.Tap(listOf(key)))
+                }
+                is MacroStep.Combo -> if (step.keys.any(::isNavigationKeyRef)) listOf(
+                    step.copy(keys = listOf(SHIFT_KEY_REF) + step.keys)
+                ) else listOf(step)
+                is MacroStep.Down -> if (step.keys.any(::isNavigationKeyRef))
+                    listOf(MacroStep.Down(listOf(SHIFT_KEY_REF)), step) else listOf(step)
+                is MacroStep.Up -> if (step.keys.any(::isNavigationKeyRef))
+                    listOf(step, MacroStep.Up(listOf(SHIFT_KEY_REF))) else listOf(step)
+                else -> listOf(step)
+            }
+        }
+
+        return action.copy(steps = finalSteps)
+    }
+
+    private fun isNavigationKeyRef(ref: KeyRef): Boolean = when (ref) {
+        is KeyRef.Fcitx -> ref.code in NAVIGATION_FCITX_KEYS
+        is KeyRef.Android -> ref.code in NAVIGATION_ANDROID_KEYCODES
     }
 
     private fun tryConsumeMacroCapsLock(): Boolean {

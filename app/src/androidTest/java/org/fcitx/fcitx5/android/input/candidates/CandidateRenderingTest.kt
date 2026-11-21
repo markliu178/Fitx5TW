@@ -178,7 +178,7 @@ class CandidateRenderingTest {
         reference.text = buildSpannedString {
             color(foreground) { append(word.text) }
             if (word.comment.isNotBlank()) {
-                if (word.spaceBetweenComment) append(" ")
+                if (word.spaceBetweenComment) append('\u2009')
                 inSpans(
                     CustomTypefaceSpan(FontProviders.resolveCommentTypeface(text.typeface)),
                     AbsoluteSizeSpan(FontProviders.commentFontSizePx(text.context), false),

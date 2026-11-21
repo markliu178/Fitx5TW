@@ -78,7 +78,7 @@ class LabeledCandidateItemUi(
             }
             if (candidate.comment.isNotBlank()) {
                 if (candidate.spaceBetweenComment) {
-                    append(" ")
+                    append('\u2009')
                 }
                 inSpans(CustomTypefaceSpan(commentTypeface), AbsoluteSizeSpan(commentSizePx, false)) {
                     color(altFg) {

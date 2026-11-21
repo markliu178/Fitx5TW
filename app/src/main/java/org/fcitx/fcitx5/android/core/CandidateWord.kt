@@ -20,7 +20,7 @@ data class CandidateWord @JvmOverloads constructor(
             append(text)
             if (comment.isNotBlank()) {
                 if (spaceBetweenComment) {
-                    append(" ")
+                    append('\u2009')
                 }
                 append(comment)
             }
