@@ -118,15 +118,6 @@ class AutoScaleTextView @JvmOverloads constructor(
     fun setFontTypeFace(key: String) {
         fontTypeFaceKey = key
         setTypeface(FontProviders.resolveTypeface(key, typeface))
-        // 单字重字体没有可选的粗体字面，用合成加粗让字重滑杆在 600 以上可见。
-        val fakeBold = FontProviders.getFontWeight(key) >= 600
-        if (paint.isFakeBoldText != fakeBold) {
-            paint.isFakeBoldText = fakeBold
-            needsMeasureText = true
-            needsCalculateTransform = true
-            requestLayout()
-            invalidate()
-        }
     }
 
     /**

@@ -224,7 +224,7 @@ class FontsetEditorActivity : SettingsUiActivity() {
             // Load font size if exists (independent from font path)
             val sizeKey = "${entry.key}_size"
             selectedFontSizes[entry.key] = parsed[sizeKey]?.firstOrNull()?.toFloatOrNull()
-                ?.coerceIn(8f, 72f) ?: entry.defaultFontSize
+                ?.coerceIn(3f, 33f) ?: entry.defaultFontSize
             selectedFontWeights[entry.key] = parsed["${entry.key}_weight"]?.firstOrNull()?.toIntOrNull()
                 ?.coerceIn(100, 900) ?: DEFAULT_FONT_WEIGHT
         }
@@ -361,8 +361,6 @@ class FontsetEditorActivity : SettingsUiActivity() {
             }
             row.value.visibility = if (selected.isEmpty()) View.GONE else View.VISIBLE
             row.preview.typeface = buildTypeface(selected, weight)
-            // 单字重字体靠合成加粗体现粗体档位。
-            row.preview.paint.isFakeBoldText = weight >= 600
             
             // Update font size display
             val fontSizeView = fontSizeViews[entry.key]
@@ -533,8 +531,8 @@ class FontsetEditorActivity : SettingsUiActivity() {
 
     private fun openFontSizeEditor(entry: FontEntry) {
         val currentSize = selectedFontSizes[entry.key] ?: entry.defaultFontSize
-        val minSize = 8f
-        val maxSize = 72f
+        val minSize = 3f
+        val maxSize = 33f
         
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -563,8 +561,6 @@ class FontsetEditorActivity : SettingsUiActivity() {
                 selectedFonts[entry.key].orEmpty(),
                 selectedFontWeights[entry.key] ?: DEFAULT_FONT_WEIGHT
             )
-            paint.isFakeBoldText =
-                (selectedFontWeights[entry.key] ?: DEFAULT_FONT_WEIGHT) >= 600
         }
         
         val hint = TextView(this).apply {
@@ -639,7 +635,6 @@ class FontsetEditorActivity : SettingsUiActivity() {
             gravity = android.view.Gravity.CENTER
             setPadding(0, dp(16), 0, dp(8))
             typeface = buildTypeface(selectedFonts[entry.key].orEmpty(), currentWeight)
-            paint.isFakeBoldText = currentWeight >= 600
         }
 
         val hint = TextView(this).apply {
@@ -663,7 +658,6 @@ class FontsetEditorActivity : SettingsUiActivity() {
                 val newWeight = weightForProgress(progress)
                 weightDisplay.text = getString(R.string.font_weight_value, newWeight)
                 previewText.typeface = buildTypeface(selectedFonts[entry.key].orEmpty(), newWeight)
-                previewText.paint.isFakeBoldText = newWeight >= 600
             }
             override fun onStartTrackingTouch(seekBar: org.fcitx.fcitx5.android.ui.common.SettingsSlider) {}
             override fun onStopTrackingTouch(seekBar: org.fcitx.fcitx5.android.ui.common.SettingsSlider) {}

@@ -87,6 +87,11 @@ fun resolveKeyRefCode(ref: KeyRef): Int = when (ref) {
     is KeyRef.Fcitx -> resolveKeyCode(ref.code)
 }
 
+/** 常见的成对符号；宏「输入文本」整段命中时自动把光标移到中间。 */
+private val PAIRED_SYMBOLS = setOf(
+    "\"\"", "“”", "‘’", "「」", "『』", "【】", "《》", "〈〉", "（）", "()", "[]", "{}", "〔〕", "〖〗"
+)
+
 fun executeMacroSteps(steps: List<MacroStep>, service: FcitxInputMethodService, context: Context? = null) {
     var hasOsLConsumingStep = false
     for (step in steps) {
@@ -127,6 +132,13 @@ fun executeMacroSteps(steps: List<MacroStep>, service: FcitxInputMethodService, 
             is MacroStep.Text -> {
                 if (step.text.isNotEmpty()) hasOsLConsumingStep = true
                 service.commitText(step.text)
+                // 成对符号：上屏后把光标移到中间，免去手动左移。
+                if (step.text in PAIRED_SYMBOLS) {
+                    service.currentInputConnection?.let { ic ->
+                        ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_LEFT))
+                        ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_DPAD_LEFT))
+                    }
+                }
             }
             is MacroStep.Edit -> {
                 if (step.action.isNotBlank()) hasOsLConsumingStep = true

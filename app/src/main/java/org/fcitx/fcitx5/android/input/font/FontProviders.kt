@@ -150,8 +150,8 @@ object FontProviders {
         val specificSize = sizeMap["${key}_size"]
         val size = sizeMap[key]
         val resolved = when {
-            specificSize != null && specificSize in 8f..72f -> specificSize
-            size != null && size in 8f..72f -> size
+            specificSize != null && specificSize in 3f..33f -> specificSize
+            size != null && size in 3f..33f -> size
             else -> default
         }
         synchronized(fontSizeResultCache) {
