@@ -777,6 +777,7 @@
     <string name="text_keyboard_layout_backspace_swipe_left_inner">Swipe Delete</string>
     <string name="text_keyboard_layout_backspace_swipe_left_step_dp">Delete swipe speed</string>
     <string name="text_keyboard_layout_space_swipe_step_dp">Horizontal swipe speed</string>
+    <string name="text_keyboard_layout_swipe_step_dp">Swipe speed (dp/step, smaller is more sensitive)</string>
     <string name="text_keyboard_layout_macro_longpress_event">Long Press Event</string>
     <string name="text_keyboard_layout_longpress_label">Long Press Label</string>
     <string name="text_keyboard_layout_longpress_label_fallback_hint">Empty means using Label in popup</string>

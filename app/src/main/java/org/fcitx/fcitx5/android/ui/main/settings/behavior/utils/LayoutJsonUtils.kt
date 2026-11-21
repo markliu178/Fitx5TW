@@ -464,6 +464,7 @@ object LayoutJsonUtils {
             swipeRight = obj["swipeRight"]?.jsonObject?.let { parseMacroAction(it) },
             swipeLeftMode = obj["swipeLeftMode"]?.jsonPrimitive?.contentOrNull,
             swipeLeftStepDp = parseOptionalFloat(obj["swipeLeftStepDp"]),
+            swipeStepDp = parseOptionalFloat(obj["swipeStepDp"]),
             swipe = obj["swipe"]?.jsonObject?.let { parseMacroAction(it) },
             longPress = obj["longPress"]?.jsonObject?.let { parseMacroAction(it) },
             independentColor = independentColor,
@@ -965,6 +966,8 @@ object LayoutJsonUtils {
         val swipeLeftMode: String? = null,
         /** 内删时编码光标每移动 1 个字母所需的手指滑动距离（dp）。 */
         val swipeLeftStepDp: Float? = null,
+        /** 本键四向滑动触发距离（dp/格），对应 `KeyDef.swipeStepDp`。 */
+        val swipeStepDp: Float? = null,
          val swipe: MacroAction? = null,  // 旧版单一划动宏
         val longPress: MacroAction? = null,  // MacroKey 使用
         val independentColor: Boolean? = null,
@@ -1207,6 +1210,7 @@ object LayoutJsonUtils {
         if (keyDef.rowSwipeUpLabelOffsetY != 0) json["rowSwipeUpLabelOffsetY"] = keyDef.rowSwipeUpLabelOffsetY
         if (keyDef.rowSwipeDownLabelOffsetX != 0) json["rowSwipeDownLabelOffsetX"] = keyDef.rowSwipeDownLabelOffsetX
         if (keyDef.rowSwipeDownLabelOffsetY != 0) json["rowSwipeDownLabelOffsetY"] = keyDef.rowSwipeDownLabelOffsetY
+        keyDef.swipeStepDp?.let { json["swipeStepDp"] = it }
 
         return json
     }
@@ -1574,6 +1578,9 @@ object LayoutJsonUtils {
         keyDef.rowSwipeUpLabelOffsetY = key.rowSwipeUpLabelOffsetY ?: 0
         keyDef.rowSwipeDownLabelOffsetX = key.rowSwipeDownLabelOffsetX ?: 0
         keyDef.rowSwipeDownLabelOffsetY = key.rowSwipeDownLabelOffsetY ?: 0
+        keyDef.swipeStepDp = key.swipeStepDp?.coerceIn(
+            MIN_SWIPE_LEFT_STEP_DP, MAX_SWIPE_LEFT_STEP_DP
+        )
         key.composeOverride?.let { override ->
             val overrideDef = createKeyDef(
                 override.copy(composeOverride = null, weight = null, rowHeightPercent = null),

@@ -231,6 +231,8 @@ class KeyEditorForm(
     /** 左右滑动速度：空格光标模式横向每移动一格所需的滑动距离（dp），越小越快。 */
     private var spaceSwipeLeftStepDp: Float = DEFAULT_SPACE_SWIPE_STEP_DP
     private var spaceSwipeLeftStepDpEdit: EditText? = null
+    /** 本键四向滑动触发距离（dp/格），越小越灵敏；空串表示沿用默认。 */
+    private var swipeStepDpEdit: EditText? = null
     private var macroEditCallback: ((List<Any>) -> Unit)? = null
 
     /**
@@ -467,6 +469,7 @@ class KeyEditorForm(
         backspaceSwipeLeftStepDpEdit = null
         spaceSwipeLeftStepDp = DEFAULT_SPACE_SWIPE_STEP_DP
         spaceSwipeLeftStepDpEdit = null
+        swipeStepDpEdit = null
         macroSwipeUpStepsData = emptyList()
         macroSwipeDownStepsData = emptyList()
 
@@ -1292,6 +1295,7 @@ class KeyEditorForm(
      * 左/右滑动作。与上/下滑不同，它们没有对应的键面标签槽位，因此只写宏字段。
      */
     private fun addHorizontalSwipeMacroEditors(sourceKeyData: Map<String, Any?>) {
+        addSwipeStepEditor(sourceKeyData)
         horizontalSwipeLeftStepsData = macroStepsOf(sourceKeyData["swipeLeft"])
         horizontalSwipeRightStepsData = macroStepsOf(sourceKeyData["swipeRight"])
         createMacroEditorButton(
@@ -1332,11 +1336,43 @@ class KeyEditorForm(
         ).forEach { fieldsContainer.addView(it) }
     }
 
+    private fun hasAnySwipeAction(data: Map<String, Any?>): Boolean =
+        data.containsKey("swipe") || data.containsKey("swipeUp") ||
+            data.containsKey("swipeDown") || data.containsKey("swipeLeft") ||
+            data.containsKey("swipeRight")
+
+    /**
+     * 本键四向滑动速度（触发距离 dp/格）。只在配置了任意方向滑动时出现，
+     * 同时作用于上/下/左/右；留空表示沿用默认。
+     */
+    private fun addSwipeStepEditor(sourceKeyData: Map<String, Any?>) {
+        if (!hasAnySwipeAction(sourceKeyData)) return
+        val step = (sourceKeyData["swipeStepDp"] as? Number)?.toFloat()
+            ?.coerceIn(MIN_SWIPE_LEFT_STEP_DP, MAX_SWIPE_LEFT_STEP_DP)
+        val text = step?.let { if (it % 1f == 0f) it.toInt().toString() else it.toString() } ?: ""
+        val (container, editText) = uiBuilder.createEditField(
+            getString(R.string.text_keyboard_layout_swipe_step_dp),
+            text
+        )
+        editText.inputType = android.text.InputType.TYPE_CLASS_NUMBER or
+            android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+        swipeStepDpEdit = editText
+        fieldsContainer.addView(container)
+    }
+
+    private fun appendSwipeStepDraft(draft: MutableMap<String, Any?>) {
+        val edit = swipeStepDpEdit ?: return
+        val step = edit.text?.toString()?.toFloatOrNull()
+            ?.coerceIn(MIN_SWIPE_LEFT_STEP_DP, MAX_SWIPE_LEFT_STEP_DP)
+        if (step != null) draft["swipeStepDp"] = step else draft.remove("swipeStepDp")
+    }
+
     /**
      * 退格键的左滑事件不再保存宏：左滑固定为内置手势，只保留清删/滑删模式；
      * 右滑仍按普通宏编辑。删动速度（每字滑动 dp）对两种模式都生效。
      */
     private fun addBackspaceHorizontalSwipeEditors(sourceKeyData: Map<String, Any?>) {
+        addSwipeStepEditor(sourceKeyData)
         backspaceSwipeLeftMode = (sourceKeyData["swipeLeftMode"] as? String)
             ?.takeIf { it == BACKSPACE_SWIPE_LEFT_INNER }
             ?: BACKSPACE_SWIPE_LEFT_CLEAR
@@ -2075,7 +2111,10 @@ class KeyEditorForm(
         }
         if (!composeOverrideEditorMode) {
             appendAltLabelOffsets(draft)
-            if (selectedType in HORIZONTAL_SWIPE_TYPES) applyHorizontalSwipeDraft(draft)
+            if (selectedType in HORIZONTAL_SWIPE_TYPES) {
+                applyHorizontalSwipeDraft(draft)
+                appendSwipeStepDraft(draft)
+            }
             // Row height stays in row settings; the split boundary can also be edited on this key.
             keyData["rowHeightPercent"]?.let { draft["rowHeightPercent"] = it }
             ROW_SWIPE_OFFSET_FIELDS.forEach { field ->
@@ -2615,7 +2654,10 @@ class KeyEditorForm(
         }
         if (!composeOverrideEditorMode) {
             appendAltLabelOffsets(newKey)
-            if (selectedType in HORIZONTAL_SWIPE_TYPES) applyHorizontalSwipeDraft(newKey)
+            if (selectedType in HORIZONTAL_SWIPE_TYPES) {
+                applyHorizontalSwipeDraft(newKey)
+                appendSwipeStepDraft(newKey)
+            }
             // Row height stays in row settings; the split boundary can also be edited on this key.
             keyData["rowHeightPercent"]?.let { newKey["rowHeightPercent"] = it }
             ROW_SWIPE_OFFSET_FIELDS.forEach { field ->

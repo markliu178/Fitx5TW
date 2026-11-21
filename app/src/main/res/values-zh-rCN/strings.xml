@@ -792,6 +792,7 @@
     <string name="text_keyboard_layout_backspace_swipe_left_inner">滑删</string>
     <string name="text_keyboard_layout_backspace_swipe_left_step_dp">删动速度</string>
     <string name="text_keyboard_layout_space_swipe_step_dp">左右滑动速度</string>
+    <string name="text_keyboard_layout_swipe_step_dp">滑动速度（dp/格，越小越灵敏）</string>
     <string name="text_keyboard_layout_macro_longpress_event">长按事件</string>
     <string name="text_keyboard_layout_longpress_label">长按标签</string>
     <string name="text_keyboard_layout_longpress_label_fallback_hint">留空则在弹出菜单中使用“标签”</string>

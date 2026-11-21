@@ -1921,7 +1921,9 @@ abstract class BaseKeyboard(
                 )
                 swipeThresholdY = if (
                     def.swipe != null || def.swipeUp != null || def.swipeDown != null
-                ) inputSwipeThreshold else disabledSwipeThreshold
+                ) def.swipeStepDp?.let {
+                    dp(it.coerceIn(MIN_SWIPE_LEFT_STEP_DP, MAX_SWIPE_LEFT_STEP_DP))
+                } ?: inputSwipeThreshold else disabledSwipeThreshold
                 var backspaceSwipeAxis: SwipeAxis? = null
                 // 内删（swipeLeftMode == Inner）在合成态下的手势状态。只在真的开始
                 // 横向左滑且存在预编辑文本时启用，非合成态保持清删（清空/删选区）。
@@ -2110,7 +2112,7 @@ abstract class BaseKeyboard(
             applySpaceLabelOverride(this, activeDef)
             // 空格键的「长按重复输入」在 applyBehaviorPopupBindings 内部按视图重绑
             // （它会先清空 repeat 回调，所以由它自己收尾最稳），这里不再单独调用。
-            applyBehaviorPopupBindings(this, baseline, activeDef.behaviors, activeDef.popup)
+            applyBehaviorPopupBindings(this, baseline, activeDef.behaviors, activeDef.popup, activeDef.swipeStepDp)
             if (def is BackspaceKey) {
                 // 长按退格进入连删时弹出"上滑清空"提示条；手指滑进提示条区域即清空。
                 // 必须在 applyBehaviorPopupBindings 之后绑定：它会先把这两个回调清空。
@@ -2178,7 +2180,7 @@ abstract class BaseKeyboard(
 
         // First, rebind behaviors on existing views so taps during transition already use new actions.
         updates.forEach { u ->
-            applyBehaviorPopupBindings(u.item.keyView, u.item.baseline, u.activeDef.behaviors, u.activeDef.popup)
+            applyBehaviorPopupBindings(u.item.keyView, u.item.baseline, u.activeDef.behaviors, u.activeDef.popup, u.activeDef.swipeStepDp)
         }
 
         // Never swap out a view that currently has a finger on it: the old instance owns the
@@ -2210,7 +2212,7 @@ abstract class BaseKeyboard(
             // 合成态切换会把键面文字重置成外观自带的 displayText，自定义空格标签要跟着
             // activeDef 重新落一次（合成态用的是 composeOverride 里的键定义）。
             applySpaceLabelOverride(u.item.keyView, u.activeDef)
-            applyBehaviorPopupBindings(u.item.keyView, u.item.baseline, u.activeDef.behaviors, u.activeDef.popup)
+            applyBehaviorPopupBindings(u.item.keyView, u.item.baseline, u.activeDef.behaviors, u.activeDef.popup, u.activeDef.swipeStepDp)
         }
 
         // Behaviors were already rebound above, so the held key acts on the new composition
@@ -2741,7 +2743,8 @@ abstract class BaseKeyboard(
         view: KeyView,
         baseline: GestureBaseline,
         behaviors: Set<KeyDef.Behavior>,
-        popup: Array<KeyDef.Popup>?
+        popup: Array<KeyDef.Popup>?,
+        swipeStepDp: Float? = null
     ) {
         view.setOnClickListener(null)
         view.setOnLongClickListener(null)
@@ -2796,12 +2799,17 @@ abstract class BaseKeyboard(
                 }
                 is KeyDef.Behavior.Swipe -> {
                     view.swipeEnabled = true
+                    // 本键自定义滑动速度（dp/格）：同时作用于横向与纵向。未设置时沿用默认阈值。
+                    val customStep = swipeStepDp?.let {
+                        dp(it.coerceIn(MIN_SWIPE_LEFT_STEP_DP, MAX_SWIPE_LEFT_STEP_DP))
+                    }
                     // 配了左/右滑动作时横向也要攒格，否则 totalX 永远是 0；否则保持
                     // 「横向禁用」，避免与其它横向手势（如弹窗聚焦）打架。
                     view.swipeThresholdX =
-                        if (it.leftMacro != null || it.rightMacro != null) inputSwipeThreshold
+                        if (it.leftMacro != null || it.rightMacro != null)
+                            customStep ?: inputSwipeThreshold
                         else disabledSwipeThreshold
-                    view.swipeThresholdY = inputSwipeThreshold
+                    view.swipeThresholdY = customStep ?: inputSwipeThreshold
                     val oldOnGestureListener = view.onGestureListener ?: OnGestureListener.Empty
                     view.onGestureListener = OnGestureListener { currentView, event ->
                         when (event.type) {
@@ -4393,6 +4401,7 @@ class AuxBarKeyAdapter(
             append('#').append(app.shadowColorMonet)
             append('#').append(behaviorSig)
             append('#').append(popupSig)
+            append('#').append(key.swipeStepDp)
         }
     }
 

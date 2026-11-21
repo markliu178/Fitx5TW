@@ -71,6 +71,15 @@ open class KeyDef(
     var rowSwipeDownLabelOffsetY: Int = 0
 
     /**
+     * 本键滑动触发距离（dp/格，越小越灵敏），作用于上/下/左/右四个方向。
+     *
+     * `null` 表示未设置，沿用引擎默认（横向/纵向均为 36dp）。与 [splitAfter] 一样
+     * 放在 [KeyDef] 上而不是键类型构造参数里：它只对配置了滑动的键有意义，且需要
+     * 在布局编辑器和 JSON 之间往返保存。
+     */
+    var swipeStepDp: Float? = null
+
+    /**
      * Optional key definition that is used while IME is in composing state.
      * This must keep the same key type/size semantics as the base key.
      */
