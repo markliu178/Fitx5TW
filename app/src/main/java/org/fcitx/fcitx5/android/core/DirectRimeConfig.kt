@@ -271,6 +271,10 @@ internal class DirectRimeConfig(private val context: Context) {
         val temp = File(dir.parentFile, ".${dir.name}.${UUID.randomUUID()}.takeover")
         try {
             copyDirectory(dir, temp)
+            // A Shizuku/root copy may still be running when the app starts, and a truncated
+            // LevelDB gets silently recreated as an empty dictionary. Never install a copy
+            // whose file set or sizes differ from the source.
+            verifyCopiedTree(dir, temp)
             val stale = File(dir.parentFile, "${dir.name}.stale-${UUID.randomUUID()}")
             check(dir.renameTo(stale)) { "无法替换方案目录：${dir.path}" }
             if (!temp.renameTo(dir)) {
@@ -280,9 +284,30 @@ internal class DirectRimeConfig(private val context: Context) {
             FileUtil.removeFile(stale).onFailure {
                 Log.w(TAG, "无法清理旧的方案目录副本：${stale.path}", it)
             }
-            Log.w(TAG, "已接管复制进来的方案目录：${dir.path}")
+            Log.w(TAG, "已接管复制进来的方案目录：${dir.path}（${dir.listFiles().orEmpty().size} 个条目）")
         } finally {
             if (temp.exists()) FileUtil.removeFile(temp)
+        }
+    }
+
+    /** Compare file names and lengths so a partial copy is never mistaken for the real one. */
+    private fun verifyCopiedTree(source: File, copy: File) {
+        fun snapshot(root: File): Map<String, Long> {
+            val entries = linkedMapOf<String, Long>()
+            fun visit(file: File) {
+                val relative = file.relativeTo(root).invariantSeparatorsPath
+                if (file.isDirectory) {
+                    entries["$relative/"] = 0L
+                    file.listFiles().orEmpty().forEach(::visit)
+                } else {
+                    entries[relative] = file.length()
+                }
+            }
+            visit(root)
+            return entries
+        }
+        check(snapshot(source) == snapshot(copy)) {
+            "无法完整复制方案目录：${source.path}；请确认文件复制已经完成并重试"
         }
     }
 
