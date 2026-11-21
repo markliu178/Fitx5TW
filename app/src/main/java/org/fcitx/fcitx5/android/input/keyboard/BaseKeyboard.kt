@@ -196,29 +196,46 @@ abstract class BaseKeyboard(
     private var editorSourceRowSizes: List<Int> = emptyList()
     private var editorDisplayIndices: List<List<Int>> = emptyList()
 
-    /** Source indices are captured during rendering, while preview JSON is still in scope. */
+    /** 最近一次 [keyViewsForEditor] 走的路径与数量，供编辑器横幅展示（无需 logcat）。 */
+    var editorKeyViewDiagnostic: String = ""
+        private set
+
+    /**
+     * 把预览渲染出的 KeyView 映射回编辑器数据的 (row, key) 索引。
+     *
+     * 首选路径：渲染时记录的 [editorDisplayIndices]（精确，正确处理分体中间键复用），
+     * 仅在 [editorSourceRowSizes] 与编辑器期望行尺寸一致时使用。
+     * 降级路径：按显示位置直接映射（keyRows 第 i 行的第 j 个 KeyView → 源 (i, j)）。
+     * 非分体布局显示顺序即源顺序，可保证画布定位始终可用；分体中间键会归到单侧，
+     * 但不再整体不可编辑——避免"预览明明渲染正常却提示无法定位"。
+     */
     fun keyViewsForEditor(expectedRowSizes: List<Int>): List<EditorKeyView> {
-        val initialized = ::keyRows.isInitialized
-        val sizesMatch = editorSourceRowSizes == expectedRowSizes
-        if (!initialized || !sizesMatch) {
-            android.util.Log.d("LayoutEditorDiag", "keyViewsForEditor EMPTY: initialized=$initialized " +
-                "editorSourceRowSizes=$editorSourceRowSizes expected=$expectedRowSizes sizesMatch=$sizesMatch " +
-                "keyRowsCount=${if (initialized) keyRows.size else -1}")
+        if (!::keyRows.isInitialized) {
+            editorKeyViewDiagnostic = "keyRows 未初始化"
+            android.util.Log.d("LayoutEditorDiag", "keyViewsForEditor: $editorKeyViewDiagnostic")
             return emptyList()
         }
-        val result = keyRows.flatMapIndexed { rowIndex, row ->
-            val indices = editorDisplayIndices.getOrNull(rowIndex).orEmpty()
-            row.children.filterIsInstance<KeyView>().mapIndexedNotNull { index, view ->
-                indices.getOrNull(index)?.takeIf { it >= 0 }?.let { EditorKeyView(rowIndex, it, view) }
-            }.toList()
+        if (editorSourceRowSizes == expectedRowSizes) {
+            val result = keyRows.flatMapIndexed { rowIndex, row ->
+                val indices = editorDisplayIndices.getOrNull(rowIndex).orEmpty()
+                row.children.filterIsInstance<KeyView>().mapIndexedNotNull { index, view ->
+                    indices.getOrNull(index)?.takeIf { it >= 0 }?.let { EditorKeyView(rowIndex, it, view) }
+                }.toList()
+            }
+            if (result.isNotEmpty()) {
+                editorKeyViewDiagnostic = "精确映射 ${result.size} 键"
+                return result
+            }
         }
-        if (result.isEmpty()) {
-            val sample = editorDisplayIndices.take(3).map { it.take(5) }
-            val childCounts = keyRows.take(3).map { it.children.filterIsInstance<KeyView>().size }
-            android.util.Log.d("LayoutEditorDiag", "keyViewsForEditor EMPTY after filter: rows=${keyRows.size} " +
-                "editorDisplayIndices(take3)=$sample keyViewChildCounts(take3)=$childCounts")
+        val fallback = keyRows.flatMapIndexed { rowIndex, row ->
+            row.children.filterIsInstance<KeyView>().mapIndexed { keyIndex, view ->
+                EditorKeyView(rowIndex, keyIndex, view)
+            }
         }
-        return result
+        editorKeyViewDiagnostic = "降级映射 ${fallback.size} 键 (stateSizes=$editorSourceRowSizes " +
+            "expected=$expectedRowSizes rows=${keyRows.size})"
+        android.util.Log.d("LayoutEditorDiag", "keyViewsForEditor fallback: $editorKeyViewDiagnostic")
+        return fallback
     }
 
     private val keyLayout: List<List<KeyDef>>

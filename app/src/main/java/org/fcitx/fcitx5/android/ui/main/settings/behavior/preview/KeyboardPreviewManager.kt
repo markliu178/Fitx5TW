@@ -81,6 +81,20 @@ class KeyboardPreviewManager(
     private var previewTextEditingView: View? = null
     private var textEditorKeys: List<BaseKeyboard.EditorKeyView> = emptyList()
 
+    /** 预览键盘完成一次渲染后回调（在主线程 post 后），用于刷新画布覆盖层与提示横幅。 */
+    var onPreviewRendered: (() -> Unit)? = null
+
+    /** 最近一次 [keyBounds] 失败的可读原因，供编辑器横幅直接展示（无需 logcat）。 */
+    var lastDiagnostic: String = ""
+        private set
+
+    /** 画布定位的可读诊断摘要（映射路径 + keyBounds 结果），临时展示于编辑器横幅。 */
+    fun diagnosticSummary(): String = buildString {
+        val kb = previewKeyboard
+        if (kb == null) append("预览键盘未创建") else append(kb.editorKeyViewDiagnostic)
+        if (lastDiagnostic.isNotEmpty()) append(" | keyBounds: ").append(lastDiagnostic)
+    }
+
     internal fun keyBounds(rows: List<List<Map<String, Any?>>>): List<EditorKeyBounds> {
         val expected = rows.map { it.size }
         val keys = previewKeyboard?.keyViewsForEditor(expected) ?: textEditorKeys
@@ -97,8 +111,15 @@ class KeyboardPreviewManager(
             val sample = keys.take(3).map {
                 "r${it.row}k${it.key}=${it.view.width}x${it.view.height} shown=${it.view.isShown}"
             }
-            android.util.Log.d("LayoutEditorDiag", "keyBounds EMPTY: expectedRowSizes=$expected keys=${keys.size} " +
-                "previewKeyboard=${previewKeyboard != null} sample=$sample")
+            val reason = when {
+                previewKeyboard == null -> "预览键盘未创建"
+                keys.isEmpty() -> "keyViews 为空（行尺寸不匹配或未渲染）"
+                else -> "按键视图未测量：${sample.joinToString()}"
+            }
+            lastDiagnostic = "expected=$expected keys=${keys.size} $reason"
+            android.util.Log.d("LayoutEditorDiag", "keyBounds EMPTY: $lastDiagnostic")
+        } else {
+            lastDiagnostic = ""
         }
         return result
     }
@@ -412,6 +433,10 @@ class KeyboardPreviewManager(
             post { previewBlurMask.refreshMask(hierarchyChanged = true) }
             requestLayout()
             invalidate()
+            // 预览键盘已挂入容器并请求了布局；下一帧布局完成后通知编辑器刷新画布覆盖层与
+            // 提示横幅。仅靠 previewKeyboardContainer 的 layout-change 回调不可靠：若容器
+            // 在预览创建前已触发过一次回调、之后尺寸不再变化，横幅就会停在"不可用"。
+            post { onPreviewRendered?.invoke() }
         }
     }
 

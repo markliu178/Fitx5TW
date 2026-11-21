@@ -446,11 +446,11 @@ class TextKeyboardLayoutEditorActivity : SettingsUiActivity() {
 
     private fun updateCanvasHint() {
         val bounds = previewManager.keyBounds(currentRowsRef)
-        val rowSizes = currentRowsRef.map { it.size }
-        android.util.Log.d("LayoutEditorDiag", "updateCanvasHint: currentRowsRef sizes=$rowSizes " +
-            "bounds=${bounds.size} editingKey=${currentEditingLayoutKey()}")
-        canvasHint.setText(if (bounds.isEmpty())
+        val diag = previewManager.diagnosticSummary()
+        val base = getString(if (bounds.isEmpty())
             R.string.layout_editor_canvas_unavailable else R.string.layout_editor_hint)
+        // 临时：把定位诊断直接显示在横幅第二行，便于无电脑时截图反馈；定位根因后移除。
+        canvasHint.text = "$base\n[diag] $diag"
     }
 
     private fun updateEditorPanel() {
@@ -713,7 +713,14 @@ class TextKeyboardLayoutEditorActivity : SettingsUiActivity() {
             },
             composingPreviewProvider = { previewComposing }
 
-        )
+        ).apply {
+            // 预览完成一次渲染后强制刷新画布覆盖层与横幅：仅靠容器 layout-change 回调会漏刷新，
+            // 导致预览明明渲染正常却一直提示"无法定位"。
+            onPreviewRendered = {
+                canvasOverlay.refresh()
+                updateCanvasHint()
+            }
+        }
     }
     
     private val pendingEditorResults = LayoutEditorResultStore()
