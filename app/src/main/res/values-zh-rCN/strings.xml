@@ -170,6 +170,7 @@
     <string name="key_border">启用按键边框</string>
     <string name="brightness">亮度</string>
     <string name="key_radius">按键圆角半径</string>
+    <string name="special_key_radius">回车/切层键圆角半径</string>
     <string name="preedit_radius">编码区圆角半径</string>
     <string name="toolbar_radius">工具栏上方圆角半径</string>
     <string name="text_editing_button_radius">文本编辑按钮圆角半径</string>
@@ -198,6 +199,7 @@
     <string name="alt_label_side">副标签侧边位置</string>
     <string name="alt_label_side_left">左侧</string>
     <string name="alt_label_side_right">右侧</string>
+    <string name="alt_label_opacity">副标签（上下标）透明度</string>
     <string name="popup_on_key_press">按键时弹出显示字符</string>
     <string name="disable_animation">禁用动画</string>
     <string name="import_from_file">导入文件…</string>
@@ -544,6 +546,9 @@
     <string name="font_size_value">%1$d sp</string>
     <string name="font_size_editor_title">%1$s - 字体大小</string>
     <string name="font_size_editor_hint">拖动调整字体大小 (%1$d–%2$d sp)</string>
+    <string name="font_weight_value">W%1$d</string>
+    <string name="font_weight_editor_title">%1$s - 字重</string>
+    <string name="font_weight_editor_hint">拖动调整字重（%1$d–%2$d，400 为常规）；Android 9 以下仅区分常规与粗体。</string>
     <string name="candidates_padding">候选词边距</string>
     <string name="candidate_highlight_radius">候选项高亮圆角半径</string>
     <string name="highlight_first_candidate">默认高亮第一个候选</string>

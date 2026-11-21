@@ -73,6 +73,13 @@ class ThemePrefs(sharedPreferences: SharedPreferences) :
         enableUiOn = { altLabelOnSide.getValue() }
     )
 
+    /**
+     * 副标签（按键上的上标/下标，即 altText / altText1）的统一不透明度。
+     * 100 表示完全沿用主题颜色，0 表示完全透明。只影响副标签，不影响主字符。
+     */
+    val altLabelOpacity =
+        int(R.string.alt_label_opacity, "alt_label_opacity", 100, 0, 100, "%")
+
     val keyHorizontalMargin: ManagedPreference.PInt
     val keyHorizontalMarginLandscape: ManagedPreference.PInt
 
@@ -114,6 +121,17 @@ class ThemePrefs(sharedPreferences: SharedPreferences) :
     }
 
     val keyRadius = int(R.string.key_radius, "key_radius", 12, 0, 48, "dp")
+
+    /**
+     * 回车键（button_return）与切层键（button_layout_switch）的独立圆角。
+     * Gboard 风格药丸（[specialKeyOvalShape]）开启时这两枚键本就忽略圆角，此项自然失效；
+     * 关闭药丸后即由本项接管，其余按键仍使用 [keyRadius]。
+     */
+    val specialKeyRadius = int(
+        R.string.special_key_radius, "special_key_radius", 12, 0, 48, "dp",
+        // 关掉按键边框时回车是药丸、切层键没有底色，圆角本就不参与绘制。
+        enableUiOn = { keyBorder.getValue() && !specialKeyOvalShape.getValue() }
+    )
 
     val preeditRadius = int(R.string.preedit_radius, "preedit_radius", 0, 0, 48, "dp")
 

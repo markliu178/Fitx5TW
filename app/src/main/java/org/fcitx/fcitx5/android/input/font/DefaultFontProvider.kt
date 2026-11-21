@@ -4,6 +4,7 @@
 package org.fcitx.fcitx5.android.input.font
 
 import android.graphics.Typeface
+import android.os.Build
 import android.os.Process
 import android.os.SystemClock
 import android.util.Log
@@ -37,7 +38,7 @@ class DefaultFontProvider : FontProviderApi {
     // cache when a layout reload happened during the reload window).
     @Volatile
     private var servedFontTypefaceMap: MutableMap<String, Typeface?> = mutableMapOf()
-    private val cachedTypefaceByPaths = mutableMapOf<List<String>, Typeface?>()
+    private val cachedTypefaceByPaths = mutableMapOf<Pair<List<String>, Int>, Typeface?>()
     private val retryableFontKeys = mutableMapOf<String, Int>()
     private var configReadRetriesLeft = MAX_CONFIG_READ_RETRIES
     @Volatile
@@ -118,7 +119,9 @@ class DefaultFontProvider : FontProviderApi {
             val startedAt = SystemClock.elapsedRealtime()
             try {
                 val (activeGeneration, config) = fontConfigSnapshot()
-                val keys = config?.paths?.keys?.filterNot { it.endsWith("_size") }.orEmpty()
+                val keys = config?.paths?.keys
+                    ?.filterNot { it.endsWith("_size") || it.endsWith("_weight") }
+                    .orEmpty()
                 if (activeGeneration != generation) return@execute
                 // Sizes are resolved here but only published together with the typefaces
                 // below: a reader that observes the new revision must never see the new
@@ -269,6 +272,12 @@ class DefaultFontProvider : FontProviderApi {
             .filter(File::exists)
             .map(File::getAbsolutePath)
 
+        // 字重与字体文件一起决定最终 Typeface，二者都参与缓存键，
+        // 否则只改字重时会命中旧缓存、发布阶段也察觉不到变化。
+        val weight = config.paths["${key}_weight"]
+            ?.firstOrNull()?.trim()?.toIntOrNull()?.coerceIn(100, 900) ?: 400
+        val cacheKey = validPaths to weight
+
         if (configuredPaths.isNotEmpty() && validPaths.isEmpty()) {
             synchronized(this) {
                 if (cacheGeneration == generation) {
@@ -289,8 +298,8 @@ class DefaultFontProvider : FontProviderApi {
         synchronized(this) {
             if (cacheGeneration != generation) return null
             if (target.containsKey(key)) return target[key]
-            if (cachedTypefaceByPaths.containsKey(validPaths)) {
-                val cached = cachedTypefaceByPaths[validPaths]
+            if (cachedTypefaceByPaths.containsKey(cacheKey)) {
+                val cached = cachedTypefaceByPaths[cacheKey]
                 target[key] = cached
                 return cached
             }
@@ -304,11 +313,11 @@ class DefaultFontProvider : FontProviderApi {
                     Typeface.createFromFile(validPaths.first())
                 else -> buildCustomFallbackTypeface(validPaths)
             }
-        }.getOrNull()
+        }.getOrNull()?.let { applyFontWeight(it, weight) }
 
         synchronized(this) {
             if (cacheGeneration != generation) return null
-            cachedTypefaceByPaths[validPaths] = loaded
+            cachedTypefaceByPaths[cacheKey] = loaded
             target[key] = loaded
             retryableFontKeys.remove(key)
             if (retryableFontKeys.isEmpty()) nextFontConfigReadAt = 0L
@@ -338,6 +347,25 @@ class DefaultFontProvider : FontProviderApi {
             builder.addCustomFallback(family)
         }
         return builder.build()
+    }
+
+    /**
+     * Apply the configured weight to a loaded typeface.
+     *
+     * Android 9+ selects the requested weight from the family, so variable fonts get the
+     * real axis value and static families resolve to the closest available face. Older
+     * releases only know regular/bold, so weights >= 600 map to bold there.
+     * The default weight returns the original object to avoid needless new instances.
+     */
+    private fun applyFontWeight(base: Typeface, weight: Int): Typeface {
+        if (weight == 400) return base
+        return runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                Typeface.create(base, weight, false)
+            } else {
+                Typeface.create(base, if (weight >= 600) Typeface.BOLD else Typeface.NORMAL)
+            }
+        }.getOrDefault(base)
     }
 
     override val fontSizeMap: MutableMap<String, Float>

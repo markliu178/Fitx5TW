@@ -179,8 +179,16 @@ class AutoScaleTextView @JvmOverloads constructor(
         val widthSize = MeasureSpec.getSize(widthMeasureSpec)
         val heightMode = MeasureSpec.getMode(heightMeasureSpec)
         val heightSize = MeasureSpec.getSize(heightMeasureSpec)
-        val width = measureTextBounds().width() + paddingLeft + paddingRight
-        val height = ceil(fontMetrics.bottom - fontMetrics.top + paddingTop + paddingBottom).toInt()
+        val bounds = measureTextBounds()
+        val width = bounds.width() + paddingLeft + paddingRight
+        // 单码点时 textBounds 是字形墨迹。部分字体（尤其是自定义字体）的 fontMetrics
+        // 下伸量小于实际墨迹，只按 metrics 定高会把 g、j 等下伸部裁掉，因此取两者的并集。
+        val verticalTop =
+            if (bounds.isEmpty) fontMetrics.top else min(fontMetrics.top, bounds.top.toFloat())
+        val verticalBottom = if (bounds.isEmpty) fontMetrics.bottom
+        else max(fontMetrics.bottom, bounds.bottom.toFloat())
+        val height =
+            ceil(verticalBottom - verticalTop + paddingTop + paddingBottom).toInt()
         val maxHeight = if (maxHeight >= 0) maxHeight else Int.MAX_VALUE
         val maxWidth = if (maxWidth >= 0) maxWidth else Int.MAX_VALUE
         setMeasuredDimension(
@@ -231,8 +239,14 @@ class AutoScaleTextView @JvmOverloads constructor(
         measureTextBounds()
         val textLeft: Float = textBounds.left.toFloat()
         val textWidth: Float = textBounds.width().toFloat()
-        val textTop: Float = fontMetrics.top
-        val textHeight: Float = fontMetrics.bottom - fontMetrics.top
+        // 与 onMeasure 保持一致：把墨迹范围并入 metrics 范围，否则下伸部会落在
+        // 视图边界之外被 canvas 裁掉。
+        val textTop: Float =
+            if (textBounds.isEmpty) fontMetrics.top else min(fontMetrics.top, textBounds.top.toFloat())
+        val textBottom: Float =
+            if (textBounds.isEmpty) fontMetrics.bottom
+            else max(fontMetrics.bottom, textBounds.bottom.toFloat())
+        val textHeight: Float = textBottom - textTop
 
         val widthScaleLimit = if (textWidth > 0f && contentWidth > 0) {
             contentWidth / textWidth

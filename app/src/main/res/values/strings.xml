@@ -177,6 +177,7 @@
     <string name="key_border">Enable key border</string>
     <string name="brightness">Brightness</string>
     <string name="key_radius">Key radius</string>
+    <string name="special_key_radius">Return / layout switch key radius</string>
     <string name="preedit_radius">Preedit area radius</string>
     <string name="toolbar_radius">Toolbar top corner radius</string>
     <string name="text_editing_button_radius">Text editing button radius</string>
@@ -205,6 +206,7 @@
     <string name="alt_label_side">Swipe label side</string>
     <string name="alt_label_side_left">Left</string>
     <string name="alt_label_side_right">Right</string>
+    <string name="alt_label_opacity">Alternative label opacity</string>
     <string name="popup_on_key_press">Popup on key press</string>
     <string name="disable_animation">Disable animation</string>
     <string name="import_from_file">Import from file…</string>
@@ -478,6 +480,9 @@
     <string name="font_size_value">%1$d sp</string>
     <string name="font_size_editor_title">%1$s - Font Size</string>
     <string name="font_size_editor_hint">Drag to adjust font size (%1$d–%2$d sp)</string>
+    <string name="font_weight_value">W%1$d</string>
+    <string name="font_weight_editor_title">%1$s - Font Weight</string>
+    <string name="font_weight_editor_hint">Drag to adjust font weight (%1$d–%2$d, 400 is regular). Android 9 and below only distinguishes regular and bold.</string>
     <string name="fontset_save_failed_io_error">Failed to save fontset: I/O error occurred</string>
     <string name="fontset_save_failed_permission_error">Failed to save fontset: Permission denied</string>
     <string name="fontset_save_failed_unknown_error">Failed to save fontset: %1$s</string>

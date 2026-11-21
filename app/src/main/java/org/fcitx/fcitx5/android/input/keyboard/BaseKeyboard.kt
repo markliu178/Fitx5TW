@@ -568,6 +568,8 @@ abstract class BaseKeyboard(
             append("|border:").append(prefs.keyBorder.getValue()).append(prefs.keyBorderStroke.getValue())
             append("|ripple:").append(prefs.keyRippleEffect.getValue())
             append("|radius:").append(prefs.keyRadius.getValue())
+            append("|specialRadius:").append(prefs.specialKeyRadius.getValue())
+            append("|altOpacity:").append(prefs.altLabelOpacity.getValue())
             append("|oval:").append(prefs.specialKeyOvalShape.getValue())
             append("|hMargins:").append(prefs.keyHorizontalMargin.getValue())
                 .append(",").append(prefs.keyHorizontalMarginLandscape.getValue())

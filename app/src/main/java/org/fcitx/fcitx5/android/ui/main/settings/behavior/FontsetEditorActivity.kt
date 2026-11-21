@@ -44,7 +44,8 @@ import org.fcitx.fcitx5.android.daemon.FcitxDaemon
 class FontsetEditorActivity : SettingsUiActivity() {
     @kotlinx.serialization.Serializable
     private data class Draft(val file: String, val baselineFonts: Map<String, List<String>>,
-        val baselineSizes: Map<String, Float>, val fonts: Map<String, List<String>>, val sizes: Map<String, Float>)
+        val baselineSizes: Map<String, Float>, val fonts: Map<String, List<String>>, val sizes: Map<String, Float>,
+        val weights: Map<String, Int> = emptyMap(), val baselineWeights: Map<String, Int> = emptyMap())
     private val draftState by lazy { org.fcitx.fcitx5.android.ui.main.settings.behavior.data.EditorDraftState(this, "fontset") }
 
     private data class FontEntry(
@@ -88,14 +89,17 @@ class FontsetEditorActivity : SettingsUiActivity() {
 
     private val selectedFonts: MutableMap<String, MutableList<String>> = mutableMapOf()
     private val selectedFontSizes: MutableMap<String, Float> = mutableMapOf()
+    private val selectedFontWeights: MutableMap<String, Int> = mutableMapOf()
     private val rowViews: MutableMap<String, FontRowViews> = mutableMapOf()
     private val fontSizeViews: MutableMap<String, TextView> = mutableMapOf()
+    private val fontWeightViews: MutableMap<String, TextView> = mutableMapOf()
     private var availableFonts: List<String> = emptyList()
     private var saveMenuItem: MenuItem? = null
 
     // Snapshots of initial state for dirty detection
     private lateinit var initialFonts: Map<String, List<String>>
     private lateinit var initialSizes: Map<String, Float>
+    private lateinit var initialWeights: Map<String, Int>
 
     private val listContainer by lazy {
         LinearLayout(this).apply {
@@ -147,8 +151,10 @@ class FontsetEditorActivity : SettingsUiActivity() {
             runCatching { kotlinx.serialization.json.Json.decodeFromString<Draft>(payload) }.onSuccess { draft ->
                 if (draft.file == fontsetFile.canonicalPath) {
                     initialFonts = draft.baselineFonts; initialSizes = draft.baselineSizes
+                    initialWeights = draft.baselineWeights
                     selectedFonts.clear(); selectedFonts.putAll(draft.fonts.mapValues { it.value.toMutableList() })
                     selectedFontSizes.clear(); selectedFontSizes.putAll(draft.sizes)
+                    selectedFontWeights.clear(); selectedFontWeights.putAll(draft.weights)
                 }
             }.onFailure { android.util.Log.w("FontsetEditor", "Unable to restore editor draft") }
         }
@@ -160,7 +166,8 @@ class FontsetEditorActivity : SettingsUiActivity() {
         super.onSaveInstanceState(outState)
         runCatching {
             draftState.save(outState, kotlinx.serialization.json.Json.encodeToString(
-                Draft(fontsetFile.canonicalPath, initialFonts, initialSizes, selectedFonts, selectedFontSizes)))
+                Draft(fontsetFile.canonicalPath, initialFonts, initialSizes, selectedFonts, selectedFontSizes,
+                    selectedFontWeights, initialWeights)))
         }.onFailure { draftState.retain(outState) }
     }
 
@@ -218,15 +225,19 @@ class FontsetEditorActivity : SettingsUiActivity() {
             val sizeKey = "${entry.key}_size"
             selectedFontSizes[entry.key] = parsed[sizeKey]?.firstOrNull()?.toFloatOrNull()
                 ?.coerceIn(8f, 72f) ?: entry.defaultFontSize
+            selectedFontWeights[entry.key] = parsed["${entry.key}_weight"]?.firstOrNull()?.toIntOrNull()
+                ?.coerceIn(100, 900) ?: DEFAULT_FONT_WEIGHT
         }
         initialFonts = selectedFonts.mapValues { it.value.toList() }
         initialSizes = selectedFontSizes.toMap()
+        initialWeights = selectedFontWeights.toMap()
     }
 
     private fun updateSaveButtonState() {
         val hasChanges = entries.any { entry ->
             selectedFonts[entry.key] != initialFonts[entry.key] ||
-            selectedFontSizes[entry.key] != initialSizes[entry.key]
+            selectedFontSizes[entry.key] != initialSizes[entry.key] ||
+            selectedFontWeights[entry.key] != initialWeights[entry.key]
         }
         saveMenuItem?.isEnabled = hasChanges
     }
@@ -281,6 +292,24 @@ class FontsetEditorActivity : SettingsUiActivity() {
             }
             titleRow.addView(fontSizeGear)
 
+            val fontWeightValue = TextView(this).apply {
+                textSize = 13f
+                setTextColor(settingsColor(android.R.attr.textColorSecondary))
+                setPadding(dp(8), 0, dp(4), 0)
+                gravity = android.view.Gravity.END
+                setOnClickListener { openFontWeightEditor(entry) }
+            }
+            titleRow.addView(fontWeightValue)
+
+            val fontWeightGear = TextView(this).apply {
+                text = "⚙"
+                textSize = 14f
+                alpha = 0.6f
+                setPadding(0, 0, dp(4), 0)
+                setOnClickListener { openFontWeightEditor(entry) }
+            }
+            titleRow.addView(fontWeightGear)
+
             listContainer.addView(titleRow)
 
             val preview = TextView(this).apply {
@@ -316,12 +345,14 @@ class FontsetEditorActivity : SettingsUiActivity() {
 
             rowViews[entry.key] = FontRowViews(preview, value)
             fontSizeViews[entry.key] = fontSizeValue
+            fontWeightViews[entry.key] = fontWeightValue
         }
     }
 
     private fun refreshRows() {
         entries.forEach { entry ->
             val selected = selectedFonts[entry.key].orEmpty()
+            val weight = selectedFontWeights[entry.key] ?: DEFAULT_FONT_WEIGHT
             val row = rowViews[entry.key] ?: return@forEach
             row.value.text = if (selected.isEmpty()) {
                 ""
@@ -329,12 +360,13 @@ class FontsetEditorActivity : SettingsUiActivity() {
                 selected.joinToString(", ")
             }
             row.value.visibility = if (selected.isEmpty()) View.GONE else View.VISIBLE
-            row.preview.typeface = buildTypeface(selected)
+            row.preview.typeface = buildTypeface(selected, weight)
             
             // Update font size display
             val fontSizeView = fontSizeViews[entry.key]
             val fontSize = selectedFontSizes[entry.key] ?: entry.defaultFontSize
             fontSizeView?.text = getString(R.string.font_size_value, fontSize.toInt())
+            fontWeightViews[entry.key]?.text = getString(R.string.font_weight_value, weight)
         }
     }
 
@@ -525,7 +557,10 @@ class FontsetEditorActivity : SettingsUiActivity() {
             textSize = currentSize
             gravity = android.view.Gravity.CENTER
             setPadding(0, dp(16), 0, dp(8))
-            typeface = buildTypeface(selectedFonts[entry.key].orEmpty())
+            typeface = buildTypeface(
+                selectedFonts[entry.key].orEmpty(),
+                selectedFontWeights[entry.key] ?: DEFAULT_FONT_WEIGHT
+            )
         }
         
         val hint = TextView(this).apply {
@@ -570,6 +605,81 @@ class FontsetEditorActivity : SettingsUiActivity() {
             .show()
     }
 
+    private fun openFontWeightEditor(entry: FontEntry) {
+        val currentWeight = selectedFontWeights[entry.key] ?: DEFAULT_FONT_WEIGHT
+        val minWeight = 100
+        val maxWeight = 900
+        val step = 100
+
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(16), dp(16), dp(8))
+        }
+
+        val seekBar = org.fcitx.fcitx5.android.ui.common.SettingsSlider(this).apply {
+            max = (maxWeight - minWeight) / step
+            progress = ((currentWeight - minWeight) / step).coerceIn(0, max)
+            setPadding(0, dp(16), 0, dp(8))
+        }
+
+        val weightDisplay = TextView(this).apply {
+            textSize = 24f
+            gravity = android.view.Gravity.CENTER
+            setPadding(0, dp(8), 0, dp(8))
+            text = getString(R.string.font_weight_value, currentWeight)
+        }
+
+        val previewText = TextView(this).apply {
+            text = entry.sample
+            textSize = selectedFontSizes[entry.key] ?: entry.defaultFontSize
+            gravity = android.view.Gravity.CENTER
+            setPadding(0, dp(16), 0, dp(8))
+            typeface = buildTypeface(selectedFonts[entry.key].orEmpty(), currentWeight)
+        }
+
+        val hint = TextView(this).apply {
+            text = getString(R.string.font_weight_editor_hint, minWeight, maxWeight)
+            textSize = 12f
+            setTextColor(settingsColor(android.R.attr.textColorSecondary))
+            gravity = android.view.Gravity.CENTER
+            setPadding(0, dp(8), 0, 0)
+        }
+
+        container.addView(seekBar)
+        container.addView(weightDisplay)
+        container.addView(previewText)
+        container.addView(hint)
+
+        fun weightForProgress(progress: Int): Int = minWeight + progress * step
+
+        seekBar.setOnSeekBarChangeListener(object : org.fcitx.fcitx5.android.ui.common.SettingsSlider.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: org.fcitx.fcitx5.android.ui.common.SettingsSlider, progress: Int, fromUser: Boolean) {
+                if (!fromUser) return
+                val newWeight = weightForProgress(progress)
+                weightDisplay.text = getString(R.string.font_weight_value, newWeight)
+                previewText.typeface = buildTypeface(selectedFonts[entry.key].orEmpty(), newWeight)
+            }
+            override fun onStartTrackingTouch(seekBar: org.fcitx.fcitx5.android.ui.common.SettingsSlider) {}
+            override fun onStopTrackingTouch(seekBar: org.fcitx.fcitx5.android.ui.common.SettingsSlider) {}
+        })
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle(getString(R.string.font_weight_editor_title, getString(entry.titleRes)))
+            .setView(container)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                selectedFontWeights[entry.key] = weightForProgress(seekBar.progress)
+                updateSaveButtonState()
+                refreshRows()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .setNeutralButton(R.string.reset) { _, _ ->
+                selectedFontWeights[entry.key] = DEFAULT_FONT_WEIGHT
+                updateSaveButtonState()
+                refreshRows()
+            }
+            .show()
+    }
+
     private fun saveFontset() {
         // Build font size map (save all font sizes, not just when fonts are set)
         val fontSizeMap = entries
@@ -580,13 +690,20 @@ class FontsetEditorActivity : SettingsUiActivity() {
             }
             .filterValues { it.isNotEmpty() && it.firstOrNull()?.toFloatOrNull() != null }
 
+        // 字重单独保存，和字体文件、字号互相独立。
+        val fontWeightMap = entries.associate { entry ->
+            "${entry.key}_weight" to mutableListOf(
+                (selectedFontWeights[entry.key] ?: DEFAULT_FONT_WEIGHT).toString()
+            )
+        }
+
         val nonEmptyMap = entries
             .associate { entry -> entry.key to selectedFonts[entry.key].orEmpty() }
             .filterValues { it.isNotEmpty() }
 
         // Merge font paths and font sizes
         // Font sizes are saved independently from font paths
-        val mergedMap = nonEmptyMap + fontSizeMap
+        val mergedMap = nonEmptyMap + fontSizeMap + fontWeightMap
 
         // allow saving empty fontset (means use system default fonts)
         org.fcitx.fcitx5.android.input.config.ConfigProviders.provider.writeFontsetPathMap(mergedMap)
@@ -605,6 +722,7 @@ class FontsetEditorActivity : SettingsUiActivity() {
                 toast(getString(R.string.fontset_saved_at))
                 initialFonts = selectedFonts.mapValues { it.value.toList() }
                 initialSizes = selectedFontSizes.toMap()
+                initialWeights = selectedFontWeights.toMap()
                 saveMenuItem?.isEnabled = false
             }.onFailure { e ->
                 val errorMsg = when (e) {
@@ -617,12 +735,15 @@ class FontsetEditorActivity : SettingsUiActivity() {
             }
     }
 
-    private fun buildTypeface(fontNames: List<String>): Typeface? {
+    private fun buildTypeface(
+        fontNames: List<String>,
+        weight: Int = DEFAULT_FONT_WEIGHT
+    ): Typeface? {
         val files = fontNames.map { File(fontsDir, it) }.filter { it.exists() }
         if (files.isEmpty()) return null
 
         return runCatching {
-            if (Build.VERSION.SDK_INT >= 29) {
+            val base = if (Build.VERSION.SDK_INT >= 29) {
                 val firstFont = Font.Builder(files.first()).build()
                 var builder = Typeface.CustomFallbackBuilder(
                     FontFamily.Builder(firstFont).build()
@@ -635,10 +756,28 @@ class FontsetEditorActivity : SettingsUiActivity() {
             } else {
                 Typeface.createFromFile(files.first())
             }
+            applyFontWeight(base, weight)
         }.getOrNull()
+    }
+
+    /**
+     * 与 DefaultFontProvider 的应用逻辑保持一致：Android 9+ 按 100–900 的字重选中
+     * 字体家族里最接近的字面（可变字体则取真实轴值），更低版本只区分常规/粗体。
+     * 400 视为常规，直接复用原对象。
+     */
+    private fun applyFontWeight(base: Typeface, weight: Int): Typeface {
+        if (weight == DEFAULT_FONT_WEIGHT) return base
+        return runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                Typeface.create(base, weight, false)
+            } else {
+                Typeface.create(base, if (weight >= 600) Typeface.BOLD else Typeface.NORMAL)
+            }
+        }.getOrDefault(base)
     }
 
     companion object {
         private const val MENU_SAVE_ID = 1001
+        private const val DEFAULT_FONT_WEIGHT = 400
     }
 }

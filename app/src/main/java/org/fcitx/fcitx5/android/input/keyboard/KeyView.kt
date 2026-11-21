@@ -27,6 +27,7 @@ import androidx.annotation.ColorInt
 import androidx.annotation.DrawableRes
 import androidx.annotation.FloatRange
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.core.graphics.ColorUtils
 import androidx.core.view.updateLayoutParams
 import org.fcitx.fcitx5.android.R
 import org.fcitx.fcitx5.android.data.theme.Theme
@@ -87,7 +88,14 @@ abstract class KeyView(
         bordered = prefs.keyBorder.getValue()
         borderStroke = prefs.keyBorderStroke.getValue()
         rippled = prefs.keyRippleEffect.getValue()
-        radius = dp(prefs.keyRadius.getValue().toFloat())
+        radius = dp(
+            when (def.viewId) {
+                // 回车与切层键可单独设置圆角；药丸形态开启时本值不参与绘制。
+                R.id.button_return, R.id.button_layout_switch ->
+                    prefs.specialKeyRadius.getValue()
+                else -> prefs.keyRadius.getValue()
+            }.toFloat()
+        )
         val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         val hMarginPref =
             if (landscape) prefs.keyHorizontalMarginLandscape else prefs.keyHorizontalMargin
@@ -241,7 +249,12 @@ abstract class KeyView(
     }
 
     protected fun resolveAltTextColor(defaultColor: Int): Int {
-        return resolveColorOverride(def.altTextColor, def.altTextColorMonet) ?: defaultColor
+        val color = resolveColorOverride(def.altTextColor, def.altTextColorMonet) ?: defaultColor
+        val opacity = ThemeManager.prefs.altLabelOpacity.getValue()
+        if (opacity >= 100) return color
+        // 统一调节上标/下标的透明度，不改主字符；按原有 alpha 等比缩放，避免覆盖主题色自带的透明度。
+        val alpha = (Color.alpha(color) * opacity / 100f).roundToInt()
+        return ColorUtils.setAlphaComponent(color, alpha)
     }
 
     protected fun punctuationPositionForKey(): PunctuationPosition {
