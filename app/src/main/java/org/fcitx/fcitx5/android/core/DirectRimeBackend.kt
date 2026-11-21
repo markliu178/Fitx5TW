@@ -766,7 +766,7 @@ class DirectRimeBackend(context: Context) : InputEngine {
             "deploy" -> redeploy()
             "sync" -> synchronize()
             "schema-selector" -> maintain {
-                config.normalizeActiveSyncDirectory()
+                this@DirectRimeBackend.config.normalizeActiveSyncDirectory()
                 val command = DirectRimeManagementCommands.schemaSelection(config)
                 check(Native.selectSchemas(command.ids.toTypedArray())) { "无法保存输入方案选择" }
                 check(Native.deploy()) { "部署失败，请检查方案文件" }
