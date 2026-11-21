@@ -388,10 +388,7 @@ class TextKeyboardLayoutEditorActivity : SettingsUiActivity() {
             previewKeyboardContainer.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
             previewKeyboardContainer.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
                 canvasOverlay.refresh()
-                post {
-                    canvasHint.setText(if (previewManager.keyBounds(currentRowsRef).isEmpty())
-                        R.string.layout_editor_canvas_unavailable else R.string.layout_editor_hint)
-                }
+                post { updateCanvasHint() }
             }
         }
     }
@@ -445,6 +442,15 @@ class TextKeyboardLayoutEditorActivity : SettingsUiActivity() {
             addView(toolbar, LinearLayout.LayoutParams(matchParent, wrapContent))
             addView(workspace, LinearLayout.LayoutParams(matchParent, 0, 1f))
         }
+    }
+
+    private fun updateCanvasHint() {
+        val bounds = previewManager.keyBounds(currentRowsRef)
+        val rowSizes = currentRowsRef.map { it.size }
+        android.util.Log.d("LayoutEditorDiag", "updateCanvasHint: currentRowsRef sizes=$rowSizes " +
+            "bounds=${bounds.size} editingKey=${currentEditingLayoutKey()}")
+        canvasHint.setText(if (bounds.isEmpty())
+            R.string.layout_editor_canvas_unavailable else R.string.layout_editor_hint)
     }
 
     private fun updateEditorPanel() {

@@ -82,8 +82,9 @@ class KeyboardPreviewManager(
     private var textEditorKeys: List<BaseKeyboard.EditorKeyView> = emptyList()
 
     internal fun keyBounds(rows: List<List<Map<String, Any?>>>): List<EditorKeyBounds> {
-        val keys = previewKeyboard?.keyViewsForEditor(rows.map { it.size }) ?: textEditorKeys
-        return keys.mapNotNull { key ->
+        val expected = rows.map { it.size }
+        val keys = previewKeyboard?.keyViewsForEditor(expected) ?: textEditorKeys
+        val result = keys.mapNotNull { key ->
             val data = rows.getOrNull(key.row)?.getOrNull(key.key) ?: return@mapNotNull null
             if (key.view.width <= 0 || key.view.height <= 0 || !key.view.isShown) return@mapNotNull null
             val rect = Rect(0, 0, key.view.width, key.view.height)
@@ -92,6 +93,14 @@ class KeyboardPreviewManager(
                 ?: (data["main"] as? String) ?: (data["type"] as? String).orEmpty()
             EditorKeyBounds(EditorKeyPosition(key.row, key.key), RectF(rect), label, data["splitAfter"] == true)
         }
+        if (result.isEmpty()) {
+            val sample = keys.take(3).map {
+                "r${it.row}k${it.key}=${it.view.width}x${it.view.height} shown=${it.view.isShown}"
+            }
+            android.util.Log.d("LayoutEditorDiag", "keyBounds EMPTY: expectedRowSizes=$expected keys=${keys.size} " +
+                "previewKeyboard=${previewKeyboard != null} sample=$sample")
+        }
+        return result
     }
     private val previewBlurMask by lazy { PreviewKeyBlurMaskView(context) }
 

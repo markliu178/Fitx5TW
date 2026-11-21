@@ -198,13 +198,27 @@ abstract class BaseKeyboard(
 
     /** Source indices are captured during rendering, while preview JSON is still in scope. */
     fun keyViewsForEditor(expectedRowSizes: List<Int>): List<EditorKeyView> {
-        if (!::keyRows.isInitialized || editorSourceRowSizes != expectedRowSizes) return emptyList()
-        return keyRows.flatMapIndexed { rowIndex, row ->
+        val initialized = ::keyRows.isInitialized
+        val sizesMatch = editorSourceRowSizes == expectedRowSizes
+        if (!initialized || !sizesMatch) {
+            android.util.Log.d("LayoutEditorDiag", "keyViewsForEditor EMPTY: initialized=$initialized " +
+                "editorSourceRowSizes=$editorSourceRowSizes expected=$expectedRowSizes sizesMatch=$sizesMatch " +
+                "keyRowsCount=${if (initialized) keyRows.size else -1}")
+            return emptyList()
+        }
+        val result = keyRows.flatMapIndexed { rowIndex, row ->
             val indices = editorDisplayIndices.getOrNull(rowIndex).orEmpty()
             row.children.filterIsInstance<KeyView>().mapIndexedNotNull { index, view ->
                 indices.getOrNull(index)?.takeIf { it >= 0 }?.let { EditorKeyView(rowIndex, it, view) }
             }.toList()
         }
+        if (result.isEmpty()) {
+            val sample = editorDisplayIndices.take(3).map { it.take(5) }
+            val childCounts = keyRows.take(3).map { it.children.filterIsInstance<KeyView>().size }
+            android.util.Log.d("LayoutEditorDiag", "keyViewsForEditor EMPTY after filter: rows=${keyRows.size} " +
+                "editorDisplayIndices(take3)=$sample keyViewChildCounts(take3)=$childCounts")
+        }
+        return result
     }
 
     private val keyLayout: List<List<KeyDef>>
