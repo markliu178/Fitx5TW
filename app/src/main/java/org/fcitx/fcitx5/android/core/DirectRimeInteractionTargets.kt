@@ -68,4 +68,45 @@ internal class DirectRimeInteractionTargets(private val owner: Owner) {
         }
         return owner.moveRawCursor(target)
     }
+
+    /** 手势起点只读一次；CommitPreview 是候选预览，不是可编辑编码。 */
+    fun compositionEditAnchor(expectedSession: Long, expectedPreedit: String): CompositionEditAnchor? {
+        val value = owner.snapshot ?: return null
+        if (!owner.started || owner.maintenance || !value.ready || value.generation != owner.inputSession ||
+            expectedSession != owner.inputSession || owner.preeditMode == "CommitPreview" ||
+            value.preedit != expectedPreedit) return null
+        val raw = owner.rawInput(value) ?: return null
+        return CompositionEditAnchor(
+            expectedSession, value.preedit, value.cursorUtf16, raw.text, raw.caretBytes
+        )
+    }
+
+    /** 原始光标可以已经移动，但原始编码文本必须仍与锚点一致。 */
+    private fun rawInputForAnchor(value: Snapshot, anchor: CompositionEditAnchor): RawInputState? {
+        if (!owner.started || owner.maintenance || !value.ready || value.generation != owner.inputSession ||
+            anchor.session != owner.inputSession) return null
+        return owner.rawInput(value)?.takeIf { it.text == anchor.rawText }
+    }
+
+    fun moveCompositionCursor(anchor: CompositionEditAnchor, position: Int): Boolean {
+        val value = owner.snapshot ?: return false
+        val raw = rawInputForAnchor(value, anchor) ?: return false
+        val target = preeditCursorToRawBytes(
+            anchor.preedit, anchor.preeditCaretUtf16, anchor.rawText, anchor.rawCaretBytes, position
+        ) ?: return false
+        if (target == raw.caretBytes) return true
+        return owner.moveRawCursor(target)
+    }
+
+    fun compositionRawCharacterCount(anchor: CompositionEditAnchor, first: Int, last: Int): Int? {
+        val value = owner.snapshot ?: return null
+        rawInputForAnchor(value, anchor) ?: return null
+        val rawFirst = preeditCursorToRawBytes(
+            anchor.preedit, anchor.preeditCaretUtf16, anchor.rawText, anchor.rawCaretBytes, first
+        ) ?: return null
+        val rawLast = preeditCursorToRawBytes(
+            anchor.preedit, anchor.preeditCaretUtf16, anchor.rawText, anchor.rawCaretBytes, last
+        ) ?: return null
+        return rawCodePointCountBetween(anchor.rawText, rawFirst, rawLast)
+    }
 }

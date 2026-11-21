@@ -239,12 +239,8 @@ abstract class BaseKeyboard(
     private data class SpaceKeyEntry(
         val keyView: KeyView,
         val swipeAction: MacroAction?,
-        val swipeLeftAction: MacroAction?,
-        val swipeRightAction: MacroAction?
-    ) {
-        val hasHorizontalSwipe: Boolean
-            get() = swipeLeftAction != null || swipeRightAction != null
-    }
+        val swipeStepDp: Float
+    )
 
     private val spaceKeys = mutableListOf<SpaceKeyEntry>()
 
@@ -255,25 +251,24 @@ abstract class BaseKeyboard(
      * `swipeEnabled = false`，这样手指在空格键上移动不会取消长按（语音输入的按住说话
      * 依赖长按判定，误取消会让录音半途中断）。
      */
-    private fun spaceSwipeEnabledFor(
-        swipeAction: MacroAction?,
-        hasHorizontalSwipe: Boolean = false
-    ): Boolean =
-        resolveSpaceSwipeEnabled(spaceSwipeMoveCursor.getValue(), swipeAction, hasHorizontalSwipe)
+    private fun spaceSwipeEnabledFor(swipeAction: MacroAction?): Boolean =
+        resolveSpaceSwipeEnabled(spaceSwipeMoveCursor.getValue(), swipeAction, false)
 
     /**
      * 按当前开关设定空格键的两轴阈值。两种模式互斥，所以同一时刻只有一套阈值生效。
      *
-     * 光标模式用小的选择阈值（逐格移动光标）；划动模式关掉横向、纵向用常规输入阈值
-     * （与其它键的 [KeyDef.Behavior.Swipe] 一致），只有配置了左/右滑动作时才打开横向。
+     * 光标模式横向每格阈值由「左右滑动速度」（dp）决定，默认 16dp 与原先
+     * `spaceCursorSwipeThreshold` 一致；划动模式左右滑动定制已移除，横向始终禁用，
+     * 纵向用常规输入阈值（与其它键的 [KeyDef.Behavior.Swipe] 一致）。
      */
-    private fun applySpaceSwipeThresholds(view: KeyView, hasHorizontalSwipe: Boolean = false) {
+    private fun applySpaceSwipeThresholds(view: KeyView, swipeStepDp: Float) {
         if (spaceSwipeMoveCursor.getValue()) {
-            view.swipeThresholdX = spaceCursorSwipeThreshold
+            view.swipeThresholdX = dp(
+                swipeStepDp.coerceIn(MIN_SWIPE_LEFT_STEP_DP, MAX_SWIPE_LEFT_STEP_DP)
+            )
             view.swipeThresholdY = selectionSwipeThreshold * 1.5f
         } else {
-            view.swipeThresholdX =
-                if (hasHorizontalSwipe) inputSwipeThreshold else disabledSwipeThreshold
+            view.swipeThresholdX = disabledSwipeThreshold
             view.swipeThresholdY = inputSwipeThreshold
         }
     }
@@ -285,21 +280,14 @@ abstract class BaseKeyboard(
      * 是 data class，其 `equals` 会逐字段比较，两个内容相同的条目（同一布局里多个空格键
      * 配了同一动作）会互相匹配到对方的槽位，把动作写到错的视图上。
      */
-    private fun registerSpaceKeyEntry(
-        view: KeyView,
-        swipeAction: MacroAction?,
-        swipeLeftAction: MacroAction?,
-        swipeRightAction: MacroAction?
-    ) {
+    private fun registerSpaceKeyEntry(view: KeyView, swipeAction: MacroAction?, swipeStepDp: Float) {
         for (i in spaceKeys.indices) {
             if (spaceKeys[i].keyView === view) {
-                spaceKeys[i] = SpaceKeyEntry(
-                    view, swipeAction, swipeLeftAction, swipeRightAction
-                )
+                spaceKeys[i] = SpaceKeyEntry(view, swipeAction, swipeStepDp)
                 return
             }
         }
-        spaceKeys.add(SpaceKeyEntry(view, swipeAction, swipeLeftAction, swipeRightAction))
+        spaceKeys.add(SpaceKeyEntry(view, swipeAction, swipeStepDp))
     }
 
     /**
@@ -316,9 +304,8 @@ abstract class BaseKeyboard(
         // 手势监听器运行时读取开关（见 createKeyView），因此切模式只需同步"是否参与
         // 手势"与阈值。已记录的基线也要一起更新，否则下一次重绑会从基线恢复出旧值。
         spaceKeys.forEach { entry ->
-            entry.keyView.swipeEnabled =
-                spaceSwipeEnabledFor(entry.swipeAction, entry.hasHorizontalSwipe)
-            applySpaceSwipeThresholds(entry.keyView, entry.hasHorizontalSwipe)
+            entry.keyView.swipeEnabled = spaceSwipeEnabledFor(entry.swipeAction)
+            applySpaceSwipeThresholds(entry.keyView, entry.swipeStepDp)
             gestureBaselines[entry.keyView]?.let { baseline ->
                 gestureBaselines[entry.keyView] = baseline.copy(
                     swipeEnabled = entry.keyView.swipeEnabled,
@@ -385,16 +372,6 @@ abstract class BaseKeyboard(
 
     private val selectionSwipeThreshold = dp(10f)
     private val inputSwipeThreshold = dp(36f)
-
-    /**
-     * 空格键光标模式每格位移。
-     *
-     * 比 [selectionSwipeThreshold]（10dp，退格键等选择类手势）大一档：10dp 一格时手指在手
-     * 机上随便一划就是 5–6 个字，用户想挪两三个字极易冲过头；放大到 16dp 后同样的手部
-     * 过冲只多出不到一个字。起步不足一格的小幅拖动由
-     * [CustomGestureView.commitSwipeStepIfPending] 在抬手时补算一格，不影响「只想挪一个字」。
-     */
-    private val spaceCursorSwipeThreshold = dp(16f)
 
     // a rather large threshold effectively disables swipe of the direction
     private val disabledSwipeThreshold = dp(800f)
@@ -609,16 +586,11 @@ abstract class BaseKeyboard(
                     // app restarted. Re-register and re-apply both the flag and the thresholds,
                     // and keep the recorded baseline in step (see [gestureBaselines]).
                     val swipeAction = (def as? SpaceKey)?.swipe
-                    val swipeLeftAction = (def as? SpaceKey)?.swipeLeft
-                    val swipeRightAction = (def as? SpaceKey)?.swipeRight
-                    val hasHorizontalSwipe =
-                        swipeLeftAction != null || swipeRightAction != null
-                    registerSpaceKeyEntry(
-                        keyView, swipeAction, swipeLeftAction, swipeRightAction
-                    )
-                    keyView.swipeEnabled =
-                        spaceSwipeEnabledFor(swipeAction, hasHorizontalSwipe)
-                    applySpaceSwipeThresholds(keyView, hasHorizontalSwipe)
+                    val swipeStepDp = (def as? SpaceKey)?.swipeLeftStepDp
+                        ?: DEFAULT_SPACE_SWIPE_STEP_DP
+                    registerSpaceKeyEntry(keyView, swipeAction, swipeStepDp)
+                    keyView.swipeEnabled = spaceSwipeEnabledFor(swipeAction)
+                    applySpaceSwipeThresholds(keyView, swipeStepDp)
                     // 复用行不会走 applyBehaviorPopupBindings，重复绑定要在这一起重放
                     // （与划动开关同一理由：视图保留着上次创建时的值）。
                     applySpaceRepeatBinding(keyView)
@@ -1794,18 +1766,17 @@ abstract class BaseKeyboard(
             if (def is SpaceKey || def is MiniSpaceKey) {
                 // 仅 SpaceKey 支持在布局编辑器里配置划动动作；MiniSpaceKey 保持纯光标语义。
                 val swipeAction = (def as? SpaceKey)?.swipe
-                val swipeLeftAction = (def as? SpaceKey)?.swipeLeft
-                val swipeRightAction = (def as? SpaceKey)?.swipeRight
-                val hasHorizontalSwipe = swipeLeftAction != null || swipeRightAction != null
+                val swipeStepDp = (def as? SpaceKey)?.swipeLeftStepDp
+                    ?: DEFAULT_SPACE_SWIPE_STEP_DP
                 // 自定义空格标签：空/纯空白视为未设置，交回 TextKeyboard 按方案名显示。
                 // 取 activeDef 而不是基础 def：合成态用的是 composeOverride 里的键定义，
                 // 标签也必须跟着换，否则合成时仍显示普通态的标签。
                 (this as? TextKeyView)?.spaceLabelOverride =
                     (activeDef as? SpaceKey)?.label?.takeIf { it.isNotBlank() }
-                registerSpaceKeyEntry(this, swipeAction, swipeLeftAction, swipeRightAction)
-                swipeEnabled = spaceSwipeEnabledFor(swipeAction, hasHorizontalSwipe)
+                registerSpaceKeyEntry(this, swipeAction, swipeStepDp)
+                swipeEnabled = spaceSwipeEnabledFor(swipeAction)
                 swipeRepeatEnabled = true
-                applySpaceSwipeThresholds(this, hasHorizontalSwipe)
+                applySpaceSwipeThresholds(this, swipeStepDp)
                 // Track the locked swipe direction to avoid conflicting gestures
                 var swipeDirectionLocked: SwipeAxis? = null
                 onGestureListener = OnGestureListener { view, event ->
@@ -1832,12 +1803,21 @@ abstract class BaseKeyboard(
                                     }
                                 }
 
+                                // Shift 激活（单击临时 / 长按锁定）时方向键带 Shift 修饰，
+                                // 服务端据此扩展选区而不是移动光标；滑动本身不消费 Shift，
+                                // 只有随后点击空格/其它键才归位（见 TextKeyboard.onAction）。
+                                val shiftActive = isShiftActive()
                                 val handled = when (swipeDirectionLocked) {
                                     SwipeAxis.X -> {
                                         if (countX != 0) {
                                             val sym =
                                                 if (countX > 0) FcitxKeyMapping.FcitxKey_Right else FcitxKeyMapping.FcitxKey_Left
-                                            val action = KeyAction.SymAction(KeySym(sym), KeyStates.Virtual)
+                                            val action = KeyAction.SymAction(
+                                                KeySym(sym),
+                                                if (shiftActive)
+                                                    KeyStates(KeyState.Virtual, KeyState.Shift)
+                                                else KeyStates.Virtual
+                                            )
                                             repeat(countX.absoluteValue) {
                                                 onAction(action)
                                                 if (hapticOnRepeat) InputFeedbacks.hapticFeedback(view)
@@ -1851,7 +1831,12 @@ abstract class BaseKeyboard(
                                         if (countY != 0) {
                                             val sym =
                                                 if (countY > 0) FcitxKeyMapping.FcitxKey_Down else FcitxKeyMapping.FcitxKey_Up
-                                            val action = KeyAction.SymAction(KeySym(sym), KeyStates.Virtual)
+                                            val action = KeyAction.SymAction(
+                                                KeySym(sym),
+                                                if (shiftActive)
+                                                    KeyStates(KeyState.Virtual, KeyState.Shift)
+                                                else KeyStates.Virtual
+                                            )
                                             repeat(countY.absoluteValue) {
                                                 onAction(action)
                                                 if (hapticOnRepeat) InputFeedbacks.hapticFeedback(view)
@@ -1870,21 +1855,14 @@ abstract class BaseKeyboard(
                             // Reset direction lock on finger up
                             swipeDirectionLocked = null
                             onAction(KeyAction.VoiceInputHoldEnd)
-                            // 划动模式：抬手时按总位移方向触发用户配置的动作，语义与其它
-                            // 键的 Behavior.Swipe 一致（一次划动只触发一次）。光标模式不触发。
+                            // 划动模式：抬手时按纵向总位移触发用户配置的上滑动作，语义与
+                            // 其它键的 Behavior.Swipe 一致（一次划动只触发一次）。空格的
+                            // 左右滑动定制已移除，横向仅在光标模式下由 Move 分支处理，
+                            // 这里不再触发任何横向动作。光标模式不触发。
                             if (cursorMode || event.consumed) {
                                 false
                             } else {
-                                val horizontal = kotlin.math.abs(event.totalX) >
-                                    kotlin.math.abs(event.totalY)
-                                val horizontalAction = if (horizontal && event.totalX != 0) {
-                                    if (event.totalX < 0) swipeLeftAction else swipeRightAction
-                                } else null
                                 when {
-                                    horizontalAction != null -> {
-                                        onAction(horizontalAction)
-                                        true
-                                    }
                                     swipeAction != null &&
                                         shouldTriggerSymbolBySwipe(view, event.totalY) -> {
                                         onAction(swipeAction)
@@ -1900,14 +1878,33 @@ abstract class BaseKeyboard(
             } else if (def is BackspaceKey) {
                 swipeEnabled = true
                 swipeRepeatEnabled = true
-                swipeThresholdX = selectionSwipeThreshold
+                // 删动速度（每字滑动 dp）对清删与滑删都生效：两种模式的横向步进都由该值决定，
+                // 默认 10dp 与原先清删的 selectionSwipeThreshold 一致，不改变默认手感。
+                swipeThresholdX = dp(
+                    def.swipeLeftStepDp.coerceIn(
+                        MIN_SWIPE_LEFT_STEP_DP,
+                        MAX_SWIPE_LEFT_STEP_DP
+                    )
+                )
                 swipeThresholdY = if (
                     def.swipe != null || def.swipeUp != null || def.swipeDown != null
                 ) inputSwipeThreshold else disabledSwipeThreshold
                 var backspaceSwipeAxis: SwipeAxis? = null
+                // 内删（swipeLeftMode == Inner）在合成态下的手势状态。只在真的开始
+                // 横向左滑且存在预编辑文本时启用，非合成态保持清删（清空/删选区）。
+                var innerDeleteActive = false
+                var innerDeleteStart = 0
+                var innerDeleteLength = 0
+                var innerDeleteSteps = 0
+                var innerDeleteText: String? = null
+                var innerDeleteSession = 0L
                 onGestureListener = OnGestureListener { view, event ->
                     when (event.type) {
                         GestureType.Down -> {
+                            innerDeleteActive = false
+                            innerDeleteText = null
+                            innerDeleteSteps = 0
+                            innerDeleteSession = 0L
                             // 转发"退格键被按下"给退格边界保护：长按删空抬手后极短时间内
                             // 又开始的新按压是抬手抖动/回弹，不应删掉正文（见
                             // BackspaceBoundaryGuard.onBackspacePressStarted）。
@@ -1925,13 +1922,47 @@ abstract class BaseKeyboard(
                                 }
                             }
                             if (backspaceSwipeAxis == SwipeAxis.X && countX != 0) {
-                                // 横向划过配置了动作的方向时不移动光标：抬手时要按
-                                // 总位移触发该动作，边移光标边触发会让两种结果叠加。
+                                // 左滑固定为内置手势（清删/内删），不再触发左滑宏；
+                                // 右滑仍可配置宏，横向划过配置了宏的方向时不移动光标：
+                                // 抬手时要按总位移触发该动作，边移光标边触发会让两种结果叠加。
+                                // 内删已经开始时，右滑用于回退光标，不能再触发右滑宏。
                                 val hasHorizontalAction =
-                                    if (countX < 0) def.swipeLeft != null
-                                    else def.swipeRight != null
+                                    !innerDeleteActive && countX > 0 && def.swipeRight != null
                                 if (hasHorizontalAction) {
                                     false
+                                } else if (
+                                    def.swipeLeftMode == BackspaceSwipeLeftMode.Inner &&
+                                    (innerDeleteActive || countX < 0)
+                                ) {
+                                    if (!innerDeleteActive) {
+                                        // 首次左滑时记录合成文本与光标起点；没有正在输入的
+                                        // 拼音就退回清删（删选区/正文）的行为。
+                                        val snapshot = getService()?.composingTextSnapshot()
+                                        if (snapshot != null) {
+                                            innerDeleteActive = true
+                                            innerDeleteStart = snapshot.cursor
+                                            innerDeleteLength = snapshot.length
+                                            innerDeleteText = snapshot.text
+                                            innerDeleteSession = snapshot.session
+                                        }
+                                    }
+                                    if (innerDeleteActive) {
+                                        // 只允许向左选取：左滑累计步数，右滑只回缩，
+                                        // 回到起始光标即边界，继续右滑被忽略。
+                                        innerDeleteSteps =
+                                            (innerDeleteSteps + countX).coerceIn(-innerDeleteStart, 0)
+                                        val target = innerDeleteStart + innerDeleteSteps
+                                        // 滑动过程只移动光标，不删除字符。
+                                        getService()?.moveComposingCursorTo(
+                                            target, innerDeleteText.orEmpty(), innerDeleteSession
+                                        )
+                                        if (hapticOnRepeat) InputFeedbacks.hapticFeedback(view)
+                                        true
+                                    } else {
+                                        onAction(KeyAction.MoveSelectionAction(countX))
+                                        if (hapticOnRepeat) InputFeedbacks.hapticFeedback(view)
+                                        true
+                                    }
                                 } else {
                                     onAction(KeyAction.MoveSelectionAction(countX))
                                     if (hapticOnRepeat) InputFeedbacks.hapticFeedback(view)
@@ -1953,8 +1984,49 @@ abstract class BaseKeyboard(
                             backspaceSwipeAxis = null
                             val horizontal = kotlin.math.abs(event.totalX) >
                                 kotlin.math.abs(event.totalY)
-                            val horizontalAction = if (horizontal && event.totalX != 0) {
-                                if (event.totalX < 0) def.swipeLeft else def.swipeRight
+                            if (innerDeleteActive) {
+                                // 内删：滑动期间只移动光标，抬手时删除光标起点左侧的编码
+                                // 字符。右滑只能回缩选区，回到起点即边界，继续右滑忽略，
+                                // 因此步数归零时不删。
+                                if (innerDeleteSteps != 0) {
+                                    val target = (innerDeleteStart + innerDeleteSteps)
+                                        .coerceIn(0, innerDeleteLength)
+                                    getService()?.deleteComposingRange(
+                                        innerDeleteStart,
+                                        target,
+                                        innerDeleteText.orEmpty(),
+                                        innerDeleteSession
+                                    )
+                                }
+                                // 抬手即结束本次退格按住序列（与 DeleteSelectionAction 一致）。
+                                getService()?.backspaceBoundaryGuard?.onUserKeyAction()
+                                innerDeleteActive = false
+                                innerDeleteText = null
+                                innerDeleteSteps = 0
+                                innerDeleteSession = 0L
+                                return@OnGestureListener true
+                            }
+                            if (
+                                def.swipeLeftMode == BackspaceSwipeLeftMode.Inner &&
+                                horizontal && event.totalX < 0
+                            ) {
+                                // 滑动过快、没有产生 Move 快照时，以抬手时的编码光标为
+                                // 起点按总位移删除；仍不回退到清删，避免把整段编码清掉。
+                                val snapshot = getService()?.composingTextSnapshot()
+                                if (snapshot != null) {
+                                    getService()?.deleteComposingRange(
+                                        snapshot.cursor,
+                                        snapshot.cursor + event.totalX,
+                                        snapshot.text,
+                                        snapshot.session
+                                    )
+                                    getService()?.backspaceBoundaryGuard?.onUserKeyAction()
+                                    return@OnGestureListener true
+                                }
+                            }
+                            // 左滑固定走内置清删，只有右滑可能触发配置的宏。
+                            val horizontalAction = if (horizontal && event.totalX > 0) {
+                                def.swipeRight
                             } else null
                             val swipeAction = selectSwipeAction(
                                 view,
@@ -3753,6 +3825,15 @@ abstract class BaseKeyboard(
     protected fun isSimulatedCapsLockOn(): Boolean {
         return getService()?.isSimulatedCapsLockOn() == true
     }
+
+    /**
+     * Shift 是否处于激活态（单击临时一次或长按/双击锁定）。
+     *
+     * 仅 [TextKeyboard] 覆盖：空格光标模式横向/纵向滑动据此给方向键附加 Shift 修饰，
+     * 服务端收到后扩展选区而非移动光标。滑动本身不消费 Shift，只有随后点击空格或
+     * 其它键才归位（见 TextKeyboard.onAction 对 FcitxKeyAction 的处理）。
+     */
+    protected open fun isShiftActive(): Boolean = false
 
     /**
      * 长按重复的这次退格是否会被退格边界保护吞掉——是则不触发按键反馈（震动）。

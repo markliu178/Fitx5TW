@@ -208,7 +208,6 @@
     <string name="popup_on_key_press">Popup on key press</string>
     <string name="disable_animation">Disable animation</string>
     <string name="import_from_file">Import from file…</string>
-    <string name="duplicate_builtin_theme">Duplicate builtin theme…</string>
     <string name="exception_logcat_created">Logcat process is already created</string>
     <string name="exception_theme_filename">The filename extension of %1$s does not indicate a theme</string>
     <string name="exception_libime_dict_filename">The filename extension of %1$s does not indicate a libime dict</string>
@@ -762,6 +761,10 @@
     <string name="text_keyboard_layout_macro_swipe_down_event">Swipe Event (Down)</string>
     <string name="text_keyboard_layout_macro_swipe_left_event">Swipe Event (Left)</string>
     <string name="text_keyboard_layout_macro_swipe_right_event">Swipe Event (Right)</string>
+    <string name="text_keyboard_layout_backspace_swipe_left_clear">Clear Delete</string>
+    <string name="text_keyboard_layout_backspace_swipe_left_inner">Swipe Delete</string>
+    <string name="text_keyboard_layout_backspace_swipe_left_step_dp">Delete swipe speed</string>
+    <string name="text_keyboard_layout_space_swipe_step_dp">Horizontal swipe speed</string>
     <string name="text_keyboard_layout_macro_longpress_event">Long Press Event</string>
     <string name="text_keyboard_layout_longpress_label">Long Press Label</string>
     <string name="text_keyboard_layout_longpress_label_fallback_hint">Empty means using Label in popup</string>

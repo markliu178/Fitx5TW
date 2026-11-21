@@ -62,7 +62,7 @@ class KeyboardEditorUiBuilder(private val activity: android.content.Context) {
          */
         val KEY_TYPES = arrayOf(
             "AlphabetKey",
-            "CapsKey",
+            "Shift_L",
             "LayoutSwitchKey",
             "CommaKey",
             "LanguageKey",

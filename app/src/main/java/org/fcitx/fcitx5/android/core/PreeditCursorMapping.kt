@@ -31,6 +31,14 @@ internal fun preeditCursorToRawBytes(
     return rawInput.substring(0, rawPosition).toByteArray(Charsets.UTF_8).size
 }
 
+/** Count raw input code points between two UTF-8 byte boundaries. */
+internal fun rawCodePointCountBetween(rawInput: String, fromBytes: Int, toBytes: Int): Int? {
+    if (fromBytes < 0 || toBytes < fromBytes) return null
+    val from = utf16Boundary(rawInput, fromBytes) ?: return null
+    val to = utf16Boundary(rawInput, toBytes) ?: return null
+    return rawInput.codePointCount(from, to)
+}
+
 private fun utf16Boundary(text: String, bytes: Int): Int? {
     if (bytes < 0) return null
     var index = 0

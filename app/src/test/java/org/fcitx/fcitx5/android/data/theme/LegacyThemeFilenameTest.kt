@@ -4,7 +4,6 @@ package org.fcitx.fcitx5.android.data.theme
 import kotlinx.serialization.json.Json
 import org.fcitx.fcitx5.android.FcitxApplication
 import org.fcitx.fcitx5.android.ui.main.settings.behavior.editor.EditorApplicationShadow
-import org.fcitx.fcitx5.android.utils.appContext
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
@@ -21,28 +20,8 @@ class LegacyThemeFilenameTest {
     private fun write(name: String, theme: Theme.Custom) = File(root, name).apply {
         writeText(Json.encodeToString(CustomThemeSerializer, theme))
     }
-    private fun theme() = appContext.assets.open("bundled/themes/sage-journey.json").bufferedReader().use {
-        Json.decodeFromString(CustomThemeSerializer, it.readText())
-    }
+    private fun theme() = ThemePreset.PixelLight.deriveCustomNoBackground("Legacy Theme")
     @Before fun clean() { root.mkdirs(); root.listFiles()?.forEach { it.deleteRecursively() } }
-
-    @Test fun allActualBundledThemesAreLoadedAndTheirNamesBecomeCanonical() {
-        // Robolectric cannot open UTF-8 APK asset names whose ZIP flag aapt leaves unset.
-        // Use the exact checked-in payloads to test the production filesystem reader.
-        val fixtures = File("src/main/assets/bundled/themes").takeIf { it.isDirectory }
-            ?: File("app/src/main/assets/bundled/themes")
-        val files = requireNotNull(fixtures.listFiles()).filter { it.extension == "json" }
-        val expected = files.map { file ->
-            val bytes = file.readBytes()
-            File(root, file.name).writeBytes(bytes)
-            Json.decodeFromString(CustomThemeSerializer, bytes.decodeToString()).name
-        }.toSet()
-        val loaded = ThemeFilesManager.listThemes()
-        assertEquals(12, expected.size)
-        assertEquals(expected, loaded.map { it.name }.toSet())
-        assertEquals(expected.map { "$it.json" }.toSet(), root.listFiles()!!.map { it.name }.toSet())
-        assertEquals(expected, ThemeFilesManager.listThemes().map { it.name }.toSet())
-    }
 
     @Test fun anExistingCanonicalThemeIsNotOverwrittenByAnOlderAlias() {
         val theme = theme()

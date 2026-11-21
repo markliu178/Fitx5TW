@@ -114,7 +114,7 @@ run {
 generateDataDescriptor {
     // rime-data ships its own copy of opencc data; link it to the shared one
     symlinks.put("usr/share/rime-data/opencc", "usr/share/opencc")
-    // 内置布局/主题/图标主题/符号面板数据只随 APK 分发、由 BundledPresets 在运行时解包到
+    // 内置布局/图标主题/符号面板数据只随 APK 分发、由 BundledPresets 在运行时解包到
     // 外部存储，不参与 dataDir 资源同步（避免占用 data 目录且保持清单驱动）。
     // 符号 catalog 由 SymbolCatalogs 直接从 assets 读取，不落盘到 data 目录。
     excludes.addAll(
@@ -123,7 +123,6 @@ generateDataDescriptor {
             "bundled",
             "bundled/keyboard_layouts",
             "bundled/keyboard_layouts/PopupPreset.json",
-            "bundled/themes",
             "bundled/icon_themes",
             "bundled/symbols",
             "bundled/symbols/symbols.json",

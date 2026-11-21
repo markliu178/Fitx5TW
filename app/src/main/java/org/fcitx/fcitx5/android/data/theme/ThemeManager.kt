@@ -28,7 +28,6 @@ import org.fcitx.fcitx5.android.data.prefs.AppPrefs
 import org.fcitx.fcitx5.android.FcitxApplication
 import org.fcitx.fcitx5.android.data.prefs.ManagedPreferenceProvider
 import org.fcitx.fcitx5.android.data.theme.ThemeManager.activeTheme
-import org.fcitx.fcitx5.android.ui.main.settings.theme.MonetThemePrefs
 import org.fcitx.fcitx5.android.utils.WeakHashSet
 import org.fcitx.fcitx5.android.utils.appContext
 import org.fcitx.fcitx5.android.utils.isDarkMode
@@ -44,58 +43,7 @@ object ThemeManager {
         fun onThemeListChange(themes: List<Theme>)
     }
 
-    val BuiltinThemes = listOf(
-        ThemePreset.MaterialLight,
-        ThemePreset.MaterialDark,
-        ThemePreset.PixelLight,
-        ThemePreset.PixelDark,
-        ThemePreset.NordLight,
-        ThemePreset.NordDark,
-        ThemePreset.DeepBlue,
-        ThemePreset.Monokai,
-        ThemePreset.AMOLEDBlack,
-    )
-
     val DefaultTheme = ThemePreset.PixelDark
-
-    private var monetThemes = defaultMonetThemes()
-
-    private fun defaultMonetThemes(): List<Theme.Monet> {
-        return listOf(ThemeMonet.getLight(), ThemeMonet.getDark())
-    }
-
-    private fun loadMonetThemes(): List<Theme.Monet> {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && !appContext.userManager.isUserUnlocked) {
-            return defaultMonetThemes()
-        }
-        // 检查是否存在自定义映射配置
-        val lightMapping = MonetThemePrefs.getMapping("MonetLight")
-        val darkMapping = MonetThemePrefs.getMapping("MonetDark")
-        val lightWaterRippleResource = MonetThemePrefs.getWaterRippleResource("MonetLight")
-        val darkWaterRippleResource = MonetThemePrefs.getWaterRippleResource("MonetDark")
-        
-        val lightTheme = if (lightMapping != null) {
-            ThemeMonet.createFromMapping(
-                isDark = false,
-                mapping = lightMapping,
-                waterRippleResource = lightWaterRippleResource
-            )
-        } else {
-            ThemeMonet.getLight()
-        }
-        
-        val darkTheme = if (darkMapping != null) {
-            ThemeMonet.createFromMapping(
-                isDark = true,
-                mapping = darkMapping,
-                waterRippleResource = darkWaterRippleResource
-            )
-        } else {
-            ThemeMonet.getDark()
-        }
-        
-        return listOf(lightTheme, darkTheme)
-    }
 
     const val RANDOM_THEME_NAME = "随机主题"
 
@@ -294,14 +242,10 @@ object ThemeManager {
     fun getTheme(name: String) =
         randomThemeOrNull()?.takeIf { it.name == name }
             ?: customThemes.find { it.name == name }
-            ?: monetThemes.find { it.name == name }
-            ?: BuiltinThemes.find { it.name == name }
 
     fun getAllThemes(): List<Theme> = buildList {
         randomThemeOrNull()?.let(::add)
         addAll(customThemes)
-        addAll(monetThemes)
-        addAll(BuiltinThemes)
     }
 
     /**
@@ -329,7 +273,6 @@ object ThemeManager {
         themeListRevision++
         customThemes.clear()
         customThemes.addAll(refreshedCustomThemes.filter { it.name != RANDOM_THEME_NAME })
-        monetThemes = loadMonetThemes()
         activeTheme = evaluateActiveTheme()
         fireThemeListChange()
     }
@@ -541,7 +484,6 @@ object ThemeManager {
 
     fun init(configuration: Configuration): Job? {
         isDarkMode = configuration.isDarkMode()
-        monetThemes = loadMonetThemes()
         // fire all `OnThemeChangedListener`s on theme preferences change
         prefs.registerOnChangeListener(onThemePrefsChange)
         _activeTheme = evaluateActiveTheme()
@@ -582,10 +524,6 @@ object ThemeManager {
 
     fun onSystemPlatteChange(newConfig: Configuration) {
         isDarkMode = newConfig.isDarkMode()
-        // 重新加载 Monet 主题（包括自定义映射）
-        monetThemes = loadMonetThemes()
-        // `ManagedThemePreference` finds a theme with same name in `getAllThemes()`
-        // thus `evaluateActiveTheme()` should be called after updating `monetThemes`
         activeTheme = evaluateActiveTheme()
         fireThemeListChange()
     }

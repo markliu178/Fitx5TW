@@ -201,7 +201,6 @@
     <string name="popup_on_key_press">按键时弹出显示字符</string>
     <string name="disable_animation">禁用动画</string>
     <string name="import_from_file">导入文件…</string>
-    <string name="duplicate_builtin_theme">复制内置主题…</string>
     <string name="exception_logcat_created">Logcat 进程已创建</string>
     <string name="exception_theme_filename">文件 %1$s 的拓展名不是主题</string>
     <string name="exception_libime_dict_filename">文件 %1$s 的拓展名不是 libime 词库</string>
@@ -777,6 +776,10 @@
     <string name="text_keyboard_layout_macro_swipe_down_event">下划事件</string>
     <string name="text_keyboard_layout_macro_swipe_left_event">左划事件</string>
     <string name="text_keyboard_layout_macro_swipe_right_event">右划事件</string>
+    <string name="text_keyboard_layout_backspace_swipe_left_clear">清删</string>
+    <string name="text_keyboard_layout_backspace_swipe_left_inner">滑删</string>
+    <string name="text_keyboard_layout_backspace_swipe_left_step_dp">删动速度</string>
+    <string name="text_keyboard_layout_space_swipe_step_dp">左右滑动速度</string>
     <string name="text_keyboard_layout_macro_longpress_event">长按事件</string>
     <string name="text_keyboard_layout_longpress_label">长按标签</string>
     <string name="text_keyboard_layout_longpress_label_fallback_hint">留空则在弹出菜单中使用“标签”</string>

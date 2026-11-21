@@ -177,6 +177,8 @@ object LayoutJsonUtils {
         "swipeUp",
         "swipeDown",
         "swipeLeft",
+        "swipeLeftMode",
+        "swipeLeftStepDp",
         "swipeRight",
         "swipe",
         "longPress",
@@ -460,6 +462,8 @@ object LayoutJsonUtils {
             swipeDown = obj["swipeDown"]?.jsonObject?.let { parseMacroAction(it) },
             swipeLeft = obj["swipeLeft"]?.jsonObject?.let { parseMacroAction(it) },
             swipeRight = obj["swipeRight"]?.jsonObject?.let { parseMacroAction(it) },
+            swipeLeftMode = obj["swipeLeftMode"]?.jsonPrimitive?.contentOrNull,
+            swipeLeftStepDp = parseOptionalFloat(obj["swipeLeftStepDp"]),
             swipe = obj["swipe"]?.jsonObject?.let { parseMacroAction(it) },
             longPress = obj["longPress"]?.jsonObject?.let { parseMacroAction(it) },
             independentColor = independentColor,
@@ -669,7 +673,7 @@ object LayoutJsonUtils {
         legacyTargetIsUp: Boolean? = null
     ): Boolean {
         val directionalTypes = setOf(
-            "CapsKey", "LayoutSwitchKey", "SymbolKey", "ReturnKey", "BackspaceKey", "MacroKey"
+            "Shift_L", "LayoutSwitchKey", "SymbolKey", "ReturnKey", "BackspaceKey", "MacroKey"
         )
         var changed = false
 
@@ -957,6 +961,10 @@ object LayoutJsonUtils {
          val swipeDown: MacroAction? = null,
         val swipeLeft: MacroAction? = null,
         val swipeRight: MacroAction? = null,
+        /** 退格键左滑事件的内置行为：clear（清删）/ inner（内删）。 */
+        val swipeLeftMode: String? = null,
+        /** 内删时编码光标每移动 1 个字母所需的手指滑动距离（dp）。 */
+        val swipeLeftStepDp: Float? = null,
          val swipe: MacroAction? = null,  // 旧版单一划动宏
         val longPress: MacroAction? = null,  // MacroKey 使用
         val independentColor: Boolean? = null,
@@ -981,7 +989,7 @@ object LayoutJsonUtils {
         keyDef: KeyDef
     ) {
         when (keyDef) {
-            is CapsKey -> putDirectionalSwipeFields(
+            is ShiftKey -> putDirectionalSwipeFields(
                 json, keyDef.swipeLabel, keyDef.swipeUpLabel, keyDef.swipeDownLabel,
                 keyDef.swipe, keyDef.swipeUp, keyDef.swipeDown,
                 keyDef.swipeLeft, keyDef.swipeRight
@@ -1004,7 +1012,7 @@ object LayoutJsonUtils {
             is BackspaceKey -> putDirectionalSwipeFields(
                 json, keyDef.swipeLabel, keyDef.swipeUpLabel, keyDef.swipeDownLabel,
                 keyDef.swipe, keyDef.swipeUp, keyDef.swipeDown,
-                keyDef.swipeLeft, keyDef.swipeRight
+                null, keyDef.swipeRight
             )
             is MacroKey -> putDirectionalSwipeFields(
                 json, null, keyDef.swipeUpLabel, keyDef.swipeDownLabel, keyDef.swipe,
@@ -1048,7 +1056,7 @@ object LayoutJsonUtils {
     fun keyDefToJson(keyDef: KeyDef): MutableMap<String, Any?> {
         val type = when (keyDef) {
             is AlphabetKey -> "AlphabetKey"
-            is CapsKey -> "CapsKey"
+            is ShiftKey -> "Shift_L"
             is LayoutSwitchKey -> "LayoutSwitchKey"
             is CommaKey -> "CommaKey"
             is LanguageKey -> "LanguageKey"
@@ -1083,7 +1091,7 @@ object LayoutJsonUtils {
                 keyDef.displayText?.takeIf { it.isNotEmpty() }?.let { json["displayText"] = it }
                 json["weight"] = appearance.percentWidth.takeIf { it != 0.1f }
             }
-            is CapsKey -> {
+            is ShiftKey -> {
                 json["weight"] = appearance.percentWidth
                 putDirectionalSwipeFieldsForKey(json, keyDef)
             }
@@ -1104,8 +1112,12 @@ object LayoutJsonUtils {
                 keyDef.label?.takeIf { it.isNotBlank() }?.let { json["label"] = it }
                 keyDef.swipeLabel?.let { json["swipeLabel"] = it }
                 keyDef.swipe?.let { json["swipe"] = macroActionToJson(it) }
-                keyDef.swipeLeft?.let { json["swipeLeft"] = macroActionToJson(it) }
-                keyDef.swipeRight?.let { json["swipeRight"] = macroActionToJson(it) }
+                // 左右滑动定制已移除：swipeLeft/swipeRight 不再写出（旧布局中的字段解析时忽略）。
+                if (keyDef.swipeLeftStepDp != DEFAULT_SPACE_SWIPE_STEP_DP) {
+                    json["swipeLeftStepDp"] = keyDef.swipeLeftStepDp
+                } else {
+                    json.remove("swipeLeftStepDp")
+                }
             }
             is SymbolKey -> {
                 json["label"] = keyDef.symbol
@@ -1119,6 +1131,18 @@ object LayoutJsonUtils {
             is BackspaceKey -> {
                 json["weight"] = appearance.percentWidth
                 putDirectionalSwipeFieldsForKey(json, keyDef)
+                // swipeLeftMode 仅在滑删（Inner）时写出；清删保持默认（不写字段）。
+                if (keyDef.swipeLeftMode == BackspaceSwipeLeftMode.Inner) {
+                    json["swipeLeftMode"] = keyDef.swipeLeftMode.value
+                } else {
+                    json.remove("swipeLeftMode")
+                }
+                // 删动速度对清删与滑删都生效，两种模式下非默认值都写出。
+                if (keyDef.swipeLeftStepDp != DEFAULT_SWIPE_LEFT_STEP_DP) {
+                    json["swipeLeftStepDp"] = keyDef.swipeLeftStepDp
+                } else {
+                    json.remove("swipeLeftStepDp")
+                }
             }
             is NumPadKey -> {
                 json["label"] = (appearance as? KeyDef.Appearance.Text)?.displayText
@@ -1333,7 +1357,7 @@ object LayoutJsonUtils {
                 shadowColor = key.shadowColor,
                 shadowColorMonet = key.shadowColorMonet
             )
-            "CapsKey" -> CapsKey(
+            "Shift_L" -> ShiftKey(
                 swipeUp = directionalUpMacro,
                 swipeDown = directionalDownMacro,
                 swipeLeft = key.swipeLeft,
@@ -1389,10 +1413,12 @@ object LayoutJsonUtils {
             "SpaceKey" -> SpaceKey(
                 percentWidth = key.weight ?: 0f,
                 swipe = key.swipe,
-                swipeLeft = key.swipeLeft,
-                swipeRight = key.swipeRight,
                 swipeLabel = key.swipeLabel,
                 label = key.label?.takeIf { it.isNotBlank() },
+                // 左右滑动定制已移除：旧布局的 swipeLeft/swipeRight 字段忽略，横向阈值改由
+                // 「左右滑动速度」（swipeLeftStepDp）控制，默认 16dp。
+                swipeLeftStepDp = (key.swipeLeftStepDp ?: DEFAULT_SPACE_SWIPE_STEP_DP)
+                    .coerceIn(MIN_SWIPE_LEFT_STEP_DP, MAX_SWIPE_LEFT_STEP_DP),
                 textColor = key.textColor,
                 textColorMonet = key.textColorMonet,
                 backgroundColor = key.backgroundColor,
@@ -1437,8 +1463,11 @@ object LayoutJsonUtils {
             "BackspaceKey" -> BackspaceKey(
                 swipeUp = directionalUpMacro,
                 swipeDown = directionalDownMacro,
-                swipeLeft = key.swipeLeft,
+                // 左滑固定为内置手势，旧布局里的 swipeLeft 宏不再生效。
                 swipeRight = key.swipeRight,
+                swipeLeftMode = BackspaceSwipeLeftMode.fromValue(key.swipeLeftMode),
+                swipeLeftStepDp = (key.swipeLeftStepDp ?: DEFAULT_SWIPE_LEFT_STEP_DP)
+                    .coerceIn(MIN_SWIPE_LEFT_STEP_DP, MAX_SWIPE_LEFT_STEP_DP),
                 swipeUpLabel = directionalUpLabel,
                 swipeDownLabel = directionalDownLabel,
                 swipe = directionalLegacyMacro,

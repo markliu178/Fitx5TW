@@ -272,7 +272,7 @@
       {"type":"MacroKey","label":"m","altLabel":"颜","weight":0.0,"tap":{"macro":[{"type":"tap","keys":[{"fcitx":"M"}]}]},"swipe":{"macro":[{"type":"tap","keys":[{"fcitx":"slash"},{"fcitx":"K"},{"fcitx":"M"}]}]}}
     ],
     [
-      {"type":"CapsKey","weight":0.0,"swipe":{"macro":[{"type":"tap","keys":[{"fcitx":"Tab"}]}]},"composeOverride":{"displayText":"⡿","tap":{"macro":[{"type":"tap","keys":[{"fcitx":"slash"}]}]},"label":"/","type":"MacroKey"},"backgroundColor":-3619905},
+      {"type":"Shift_L","weight":0.0,"swipe":{"macro":[{"type":"tap","keys":[{"fcitx":"Tab"}]}]},"composeOverride":{"displayText":"⡿","tap":{"macro":[{"type":"tap","keys":[{"fcitx":"slash"}]}]},"label":"/","type":"MacroKey"},"backgroundColor":-3619905},
       {"type":"MacroKey","label":"x","altLabel":"剪","weight":0.0,"tap":{"macro":[{"type":"tap","keys":[{"fcitx":"X"}]}]},"swipe":{"macro":[{"type":"edit","action":"cut"}]}},
       {"type":"MacroKey","label":"c","altLabel":"拷","weight":0.0,"tap":{"macro":[{"type":"tap","keys":[{"fcitx":"C"}]}]},"swipe":{"macro":[{"type":"edit","action":"copy"}]}},
       {"type":"MacroKey","label":"v","altLabel":"贴","weight":0.0,"tap":{"macro":[{"type":"tap","keys":[{"fcitx":"V"}]}]},"swipe":{"macro":[{"type":"shortcut","modifiers":[{"fcitx":"Ctrl_L"}],"key":{"fcitx":"V"}}]}},
@@ -318,7 +318,7 @@
         {"type":"MacroKey","label":"m","altLabel":"颜","weight":0.0,"tap":{"macro":[{"type":"tap","keys":[{"fcitx":"M"}]}]},"swipe":{"macro":[{"type":"tap","keys":[{"fcitx":"slash"},{"fcitx":"K"},{"fcitx":"M"}]}]}}
       ],
       [
-        {"type":"CapsKey","weight":0.0,"swipe":{"macro":[{"type":"tap","keys":[{"fcitx":"Tab"}]}]},"composeOverride":{"displayText":"⡿","tap":{"macro":[{"type":"tap","keys":[{"fcitx":"slash"}]}]},"label":"/","type":"MacroKey"},"backgroundColor":-3619905},
+        {"type":"Shift_L","weight":0.0,"swipe":{"macro":[{"type":"tap","keys":[{"fcitx":"Tab"}]}]},"composeOverride":{"displayText":"⡿","tap":{"macro":[{"type":"tap","keys":[{"fcitx":"slash"}]}]},"label":"/","type":"MacroKey"},"backgroundColor":-3619905},
         {"type":"MacroKey","label":"x","altLabel":"剪","weight":0.0,"tap":{"macro":[{"type":"tap","keys":[{"fcitx":"X"}]}]},"swipe":{"macro":[{"type":"edit","action":"cut"}]}},
         {"type":"MacroKey","label":"c","altLabel":"拷","weight":0.0,"tap":{"macro":[{"type":"tap","keys":[{"fcitx":"C"}]}]},"swipe":{"macro":[{"type":"edit","action":"copy"}]}},
         {"type":"MacroKey","label":"v","altLabel":"贴","weight":0.0,"tap":{"macro":[{"type":"tap","keys":[{"fcitx":"V"}]}]},"swipe":{"macro":[{"type":"shortcut","modifiers":[{"fcitx":"Ctrl_L"}],"key":{"fcitx":"V"}}]}},
@@ -363,7 +363,7 @@
         {"type":"MacroKey","label":"m","altLabel":"颜","weight":0.0,"tap":{"macro":[{"type":"tap","keys":[{"fcitx":"M"}]}]},"swipe":{"macro":[{"type":"tap","keys":[{"fcitx":"slash"},{"fcitx":"K"},{"fcitx":"M"}]}]}}
       ],
       [
-        {"type":"CapsKey","weight":0.0,"swipe":{"macro":[{"type":"tap","keys":[{"fcitx":"Tab"}]}]},"composeOverride":{"displayText":"⡿","tap":{"macro":[{"type":"tap","keys":[{"fcitx":"slash"}]}]},"label":"/","type":"MacroKey"},"backgroundColor":-3619905},
+        {"type":"Shift_L","weight":0.0,"swipe":{"macro":[{"type":"tap","keys":[{"fcitx":"Tab"}]}]},"composeOverride":{"displayText":"⡿","tap":{"macro":[{"type":"tap","keys":[{"fcitx":"slash"}]}]},"label":"/","type":"MacroKey"},"backgroundColor":-3619905},
         {"type":"MacroKey","label":"x","altLabel":"剪","weight":0.0,"tap":{"macro":[{"type":"tap","keys":[{"fcitx":"X"}]}]},"swipe":{"macro":[{"type":"edit","action":"cut"}]}},
         {"type":"MacroKey","label":"c","altLabel":"拷","weight":0.0,"tap":{"macro":[{"type":"tap","keys":[{"fcitx":"C"}]}]},"swipe":{"macro":[{"type":"edit","action":"copy"}]}},
         {"type":"MacroKey","label":"v","altLabel":"贴","weight":0.0,"tap":{"macro":[{"type":"tap","keys":[{"fcitx":"V"}]}]},"swipe":{"macro":[{"type":"shortcut","modifiers":[{"fcitx":"Ctrl_L"}],"key":{"fcitx":"V"}}]}},
@@ -408,7 +408,7 @@
         {"type":"MacroKey","label":"m","altLabel":"颜","weight":0.0,"tap":{"macro":[{"type":"tap","keys":[{"fcitx":"M"}]}]},"swipe":{"macro":[{"type":"tap","keys":[{"fcitx":"slash"},{"fcitx":"K"},{"fcitx":"M"}]}]}}
       ],
       [
-        {"type":"CapsKey","weight":0.0,"swipe":{"macro":[{"type":"tap","keys":[{"fcitx":"Tab"}]}]},"composeOverride":{"displayText":"⡿","tap":{"macro":[{"type":"tap","keys":[{"fcitx":"slash"}]}]},"label":"/","type":"MacroKey"},"backgroundColor":-3619905},
+        {"type":"Shift_L","weight":0.0,"swipe":{"macro":[{"type":"tap","keys":[{"fcitx":"Tab"}]}]},"composeOverride":{"displayText":"⡿","tap":{"macro":[{"type":"tap","keys":[{"fcitx":"slash"}]}]},"label":"/","type":"MacroKey"},"backgroundColor":-3619905},
         {"type":"MacroKey","label":"x","altLabel":"剪","weight":0.0,"tap":{"macro":[{"type":"tap","keys":[{"fcitx":"X"}]}]},"swipe":{"macro":[{"type":"edit","action":"cut"}]}},
         {"type":"MacroKey","label":"c","altLabel":"拷","weight":0.0,"tap":{"macro":[{"type":"tap","keys":[{"fcitx":"C"}]}]},"swipe":{"macro":[{"type":"edit","action":"copy"}]}},
         {"type":"MacroKey","label":"v","altLabel":"贴","weight":0.0,"tap":{"macro":[{"type":"tap","keys":[{"fcitx":"V"}]}]},"swipe":{"macro":[{"type":"shortcut","modifiers":[{"fcitx":"Ctrl_L"}],"key":{"fcitx":"V"}}]}},
@@ -493,7 +493,7 @@
         {"type":"MacroKey","label":"m","altLabel":"；","weight":0.0,"tap":{"macro":[{"type":"tap","keys":[{"fcitx":"M"}]}]},"swipe":{"macro":[{"type":"tap","keys":[{"fcitx":"semicolon"}]}]}}
       ],
       [
-        {"type":"CapsKey","weight":0.0,"swipe":{"macro":[{"type":"tap","keys":[{"fcitx":"Tab"}]}]},"composeOverride":{"displayText":"⡿","tap":{"macro":[{"type":"tap","keys":[{"fcitx":"slash"}]}]},"label":"/","type":"MacroKey"},"backgroundColor":-3619905},
+        {"type":"Shift_L","weight":0.0,"swipe":{"macro":[{"type":"tap","keys":[{"fcitx":"Tab"}]}]},"composeOverride":{"displayText":"⡿","tap":{"macro":[{"type":"tap","keys":[{"fcitx":"slash"}]}]},"label":"/","type":"MacroKey"},"backgroundColor":-3619905},
         {"type":"MacroKey","label":"x","altLabel":"剪","weight":0.0,"tap":{"macro":[{"type":"tap","keys":[{"fcitx":"X"}]}]},"swipe":{"macro":[{"type":"edit","action":"cut"}]}},
         {"type":"MacroKey","label":"c","altLabel":"拷","weight":0.0,"tap":{"macro":[{"type":"tap","keys":[{"fcitx":"C"}]}]},"swipe":{"macro":[{"type":"edit","action":"copy"}]}},
         {"type":"MacroKey","label":"v","altLabel":"贴","weight":0.0,"tap":{"macro":[{"type":"tap","keys":[{"fcitx":"V"}]}]},"swipe":{"macro":[{"type":"shortcut","modifiers":[{"fcitx":"Ctrl_L"}],"key":{"fcitx":"V"}}]}},

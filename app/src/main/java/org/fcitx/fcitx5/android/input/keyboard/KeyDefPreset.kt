@@ -162,7 +162,7 @@ class AlphabetKey(
     )
 )
 
-class CapsKey(
+class ShiftKey(
     percentWidth: Float = 0.15f,
     textColor: Int? = null,
     textColorMonet: String? = null,
@@ -324,6 +324,33 @@ class LayoutSwitchKey(
     )
 )
 
+/**
+ * 退格键「左滑事件」的内置行为。
+ *
+ * 左滑不再走宏：退格键自带的滑动删除（清删）与宏会互相覆盖，所以把左滑固定为内置手势，
+ * 由这个模式决定合成态下的删除方式。
+ */
+/** 内删时编码光标每移动 1 个字母所需滑动距离（dp）的默认值与可选范围。 */
+const val DEFAULT_SWIPE_LEFT_STEP_DP = 10f
+const val MIN_SWIPE_LEFT_STEP_DP = 2f
+const val MAX_SWIPE_LEFT_STEP_DP = 48f
+
+/** 空格键光标模式横向每移动一格所需滑动距离（dp）的默认值，与原先 spaceCursorSwipeThreshold 一致。 */
+const val DEFAULT_SPACE_SWIPE_STEP_DP = 16f
+
+enum class BackspaceSwipeLeftMode(val value: String) {
+    /** 清删：按下并左滑，按滑动距离删除正文；合成中则取消整段编码。 */
+    Clear("clear"),
+
+    /** 内删：非合成态与清删一致；合成态滑动只移动编码光标，抬手删除光标起止区间。 */
+    Inner("inner");
+
+    companion object {
+        fun fromValue(value: String?): BackspaceSwipeLeftMode =
+            entries.firstOrNull { it.value == value } ?: Clear
+    }
+}
+
 class BackspaceKey(
     percentWidth: Float = 0.15f,
     variant: Variant = Variant.Alternative,
@@ -337,10 +364,13 @@ class BackspaceKey(
     val swipeLabel: String? = null,
     val swipeUp: MacroAction? = null,
     val swipeDown: MacroAction? = null,
-    val swipeLeft: MacroAction? = null,
     val swipeRight: MacroAction? = null,
     val swipeUpLabel: String? = null,
-    val swipeDownLabel: String? = null
+    val swipeDownLabel: String? = null,
+    /** 左滑事件的内置行为，见 [BackspaceSwipeLeftMode]。 */
+    val swipeLeftMode: BackspaceSwipeLeftMode = BackspaceSwipeLeftMode.Clear,
+    /** 内删时编码光标每移动 1 个字母所需的手指滑动距离（dp）；越小越灵敏。 */
+    val swipeLeftStepDp: Float = DEFAULT_SWIPE_LEFT_STEP_DP
 ) : KeyDef(
     if (swipeLabel.isNullOrEmpty() && swipeUpLabel.isNullOrEmpty() && swipeDownLabel.isNullOrEmpty()) {
         Appearance.Image(
@@ -493,10 +523,10 @@ class SpaceKey(
     shadowColor: Int? = null,
     shadowColorMonet: String? = null,
     val swipe: MacroAction? = null,
-    val swipeLeft: MacroAction? = null,
-    val swipeRight: MacroAction? = null,
     val swipeLabel: String? = null,
-    val label: String? = null
+    val label: String? = null,
+    /** 光标模式下横向每移动一格所需滑动距离（dp）；越小越灵敏。仅「划动空格移动光标」开启时生效。 */
+    val swipeLeftStepDp: Float = DEFAULT_SPACE_SWIPE_STEP_DP
 ) : KeyDef(
     if (swipeLabel.isNullOrEmpty()) {
         Appearance.Text(

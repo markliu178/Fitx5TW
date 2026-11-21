@@ -38,7 +38,7 @@
       {"type":"PlaceholderKey","weight":0.05}
     ],
     [
-      {"type":"CapsKey","weight":0.15,"rowHeightPercent":21.1},
+      {"type":"Shift_L","weight":0.15,"rowHeightPercent":21.1},
       {"type":"AlphabetKey","main":"Z","alt":"~"},
       {"type":"MacroKey","label":"X","swipeDownLabel":"Cut","tap":{"macro":[{"type":"tap","keys":[{"fcitx":"X"}]}]},"swipeDown":{"macro":[{"type":"edit","action":"cut"}]}},
       {"type":"MacroKey","label":"C","swipeDownLabel":"Copy","tap":{"macro":[{"type":"tap","keys":[{"fcitx":"C"}]}]},"swipeDown":{"macro":[{"type":"edit","action":"copy"}]}},
@@ -97,7 +97,7 @@
         {"type":"PlaceholderKey","weight":0.05}
       ],
       [
-        {"type":"CapsKey","weight":0.15,"rowHeightPercent":21.1},
+        {"type":"Shift_L","weight":0.15,"rowHeightPercent":21.1},
         {"type":"AlphabetKey","main":"Z","alt":"~"},
         {"type":"MacroKey","label":"X","swipeDownLabel":"Cut","tap":{"macro":[{"type":"tap","keys":[{"fcitx":"X"}]}]},"swipeDown":{"macro":[{"type":"edit","action":"cut"}]}},
         {"type":"MacroKey","label":"C","swipeDownLabel":"Copy","tap":{"macro":[{"type":"tap","keys":[{"fcitx":"C"}]}]},"swipeDown":{"macro":[{"type":"edit","action":"copy"}]}},
@@ -232,7 +232,7 @@
         {"type":"PlaceholderKey","weight":0.05}
       ],
       [
-        {"type":"CapsKey","weight":0.15,"rowHeightPercent":21.1},
+        {"type":"Shift_L","weight":0.15,"rowHeightPercent":21.1},
         {"type":"AlphabetKey","main":"Z","alt":"~"},
         {"type":"MacroKey","label":"X","swipeDownLabel":"剪切","tap":{"macro":[{"type":"tap","keys":[{"fcitx":"X"}]}]},"swipeDown":{"macro":[{"type":"edit","action":"cut"}]}},
         {"type":"MacroKey","label":"C","swipeDownLabel":"复制","tap":{"macro":[{"type":"tap","keys":[{"fcitx":"C"}]}]},"swipeDown":{"macro":[{"type":"edit","action":"copy"}]}},
@@ -290,7 +290,7 @@
         {"type":"PlaceholderKey","weight":0.05}
       ],
       [
-        {"type":"CapsKey","weight":0.15,"rowHeightPercent":21.1},
+        {"type":"Shift_L","weight":0.15,"rowHeightPercent":21.1},
         {"type":"AlphabetKey","main":"Z","alt":"~"},
         {"type":"MacroKey","label":"X","swipeDownLabel":"Cut","tap":{"macro":[{"type":"tap","keys":[{"fcitx":"X"}]}]},"swipeDown":{"macro":[{"type":"edit","action":"cut"}]}},
         {"type":"MacroKey","label":"C","swipeDownLabel":"Copy","tap":{"macro":[{"type":"tap","keys":[{"fcitx":"C"}]}]},"swipeDown":{"macro":[{"type":"edit","action":"copy"}]}},

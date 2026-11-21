@@ -721,7 +721,7 @@ class KeyboardLayoutAdapter(
                 }
                 (displayText ?: main).ifEmpty { "?" }
             }
-            "CapsKey" -> context.getString(R.string.text_keyboard_layout_key_label_caps)
+            "Shift_L" -> context.getString(R.string.text_keyboard_layout_key_label_caps)
             "LayoutSwitchKey" -> {
                 val label = key["label"] as? String ?: "?123"
                 label

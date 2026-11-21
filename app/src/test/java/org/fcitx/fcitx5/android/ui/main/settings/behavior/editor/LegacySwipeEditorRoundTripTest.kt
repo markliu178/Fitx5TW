@@ -29,7 +29,7 @@ class LegacySwipeEditorRoundTripTest {
         Intent().putExtra(KeyEditorForm.EXTRA_KEY_DATA, KeyEditorForm.toSerializableMap(key)))
 
     @Test fun macroAppearanceRoundTrip() = appearanceRoundTrip("MacroKey")
-    @Test fun capsAppearanceRoundTrip() = appearanceRoundTrip("CapsKey")
+    @Test fun shiftAppearanceRoundTrip() = appearanceRoundTrip("Shift_L")
     @Test fun switchAppearanceRoundTrip() = appearanceRoundTrip("LayoutSwitchKey")
     @Test fun symbolAppearanceRoundTrip() = appearanceRoundTrip("SymbolKey")
     @Test fun returnAppearanceRoundTrip() = appearanceRoundTrip("ReturnKey")

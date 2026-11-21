@@ -497,7 +497,6 @@
     <string name="disable_animation">애니메이션 비활성화</string>
     <string name="disable_it">비활성화</string>
     <string name="disabled">비활성화됨</string>
-    <string name="duplicate_builtin_theme">내장 테마 복제…</string>
     <string name="edit_clipboard">클립보드 편집</string>
     <string name="edit_fontset">글꼴 설정</string>
     <string name="edit_theme">테마 편집</string>

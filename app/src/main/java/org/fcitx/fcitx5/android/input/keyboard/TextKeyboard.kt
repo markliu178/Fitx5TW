@@ -18,6 +18,7 @@ import java.lang.ref.WeakReference
 import java.util.WeakHashMap
 import org.fcitx.fcitx5.android.R
 import org.fcitx.fcitx5.android.core.DirectRimeInputMethodEntryCache
+import org.fcitx.fcitx5.android.core.FcitxKeyMapping
 import org.fcitx.fcitx5.android.core.InputMethodEntry
 import org.fcitx.fcitx5.android.core.KeyState
 import org.fcitx.fcitx5.android.core.KeyStates
@@ -1232,7 +1233,7 @@ class TextKeyboard private constructor(
                     AlphabetKey("L", ")")
                 ),
                 listOf(
-                    CapsKey(),
+                    ShiftKey(),
                     AlphabetKey("Z", "'"),
                     AlphabetKey("X", ":"),
                     AlphabetKey("C", "\""),
@@ -1389,6 +1390,8 @@ class TextKeyboard private constructor(
     private fun isDisplayCapsOn(): Boolean {
         return capsState != CapsState.None || isSimulatedCapsLockOn()
     }
+
+    override fun isShiftActive(): Boolean = capsState != CapsState.None
 
     private fun transformAlphabet(c: String): String {
         return when (capsState) {
@@ -1666,9 +1669,21 @@ class TextKeyboard private constructor(
             }
             is KeyAction.CapsAction -> {
                 if (!action.lock && source == KeyActionListener.Source.Keyboard && tryConsumeMacroCapsLock()) {
-                    // MacroKey tap Caps_Lock opened lock state: single tap on CapsKey should send Caps_Lock again.
+                    // MacroKey tap Caps_Lock opened lock state: single tap on ShiftKey should send Caps_Lock again.
                 } else {
                     switchCapsState(action.lock)
+                }
+            }
+            is KeyAction.SymAction -> {
+                // 点击空格或退格归位 Shift：它们走 SymAction（不经过 FcitxKeyAction 的大写
+                // 转换分支），需单独消费 Once。滑动产生的方向键（Left/Right/Up/Down）不会
+                // 命中，因此保持「滑动锁定、点击归位」。Lock 不在此归位，与字母键分支一致。
+                if (source == KeyActionListener.Source.Keyboard &&
+                    (action.sym.sym == FcitxKeyMapping.FcitxKey_space ||
+                        action.sym.sym == FcitxKeyMapping.FcitxKey_BackSpace) &&
+                    capsState == CapsState.Once
+                ) {
+                    switchCapsState()
                 }
             }
             else -> {}

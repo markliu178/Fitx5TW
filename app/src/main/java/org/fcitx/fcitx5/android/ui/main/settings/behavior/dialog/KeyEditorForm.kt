@@ -28,6 +28,10 @@ import org.fcitx.fcitx5.android.data.prefs.AppPrefs
 import org.fcitx.fcitx5.android.data.theme.SystemColorResourceId
 import org.fcitx.fcitx5.android.data.theme.ThemeManager
 import org.fcitx.fcitx5.android.data.theme.ThemeMonet
+import org.fcitx.fcitx5.android.input.keyboard.DEFAULT_SPACE_SWIPE_STEP_DP
+import org.fcitx.fcitx5.android.input.keyboard.DEFAULT_SWIPE_LEFT_STEP_DP
+import org.fcitx.fcitx5.android.input.keyboard.MAX_SWIPE_LEFT_STEP_DP
+import org.fcitx.fcitx5.android.input.keyboard.MIN_SWIPE_LEFT_STEP_DP
 import org.fcitx.fcitx5.android.ui.main.settings.behavior.utils.LayoutJsonUtils
 import org.fcitx.fcitx5.android.ui.main.settings.theme.SystemColorResourcePickerDialog
 import org.fcitx.fcitx5.android.ui.main.settings.theme.ThemeColorEditorActivity
@@ -214,6 +218,19 @@ class KeyEditorForm(
     // 用一组共享状态即可，保存时按当前键型统一写入 swipeLeft/swipeRight。
     private var horizontalSwipeLeftStepsData: List<Any> = emptyList()
     private var horizontalSwipeRightStepsData: List<Any> = emptyList()
+
+    /**
+     * 退格键左滑事件的内置行为：
+     * - [BACKSPACE_SWIPE_LEFT_CLEAR] 清删（默认）
+     * - [BACKSPACE_SWIPE_LEFT_INNER] 内删
+     */
+    private var backspaceSwipeLeftMode: String = BACKSPACE_SWIPE_LEFT_CLEAR
+    /** 删动速度：退格键清删/滑删时每删一个字所需的横向滑动距离（dp），越小越快。 */
+    private var backspaceSwipeLeftStepDp: Float = DEFAULT_SWIPE_LEFT_STEP_DP
+    private var backspaceSwipeLeftStepDpEdit: EditText? = null
+    /** 左右滑动速度：空格光标模式横向每移动一格所需的滑动距离（dp），越小越快。 */
+    private var spaceSwipeLeftStepDp: Float = DEFAULT_SPACE_SWIPE_STEP_DP
+    private var spaceSwipeLeftStepDpEdit: EditText? = null
     private var macroEditCallback: ((List<Any>) -> Unit)? = null
 
     /**
@@ -445,6 +462,11 @@ class KeyEditorForm(
         nonMacroSwipeDownStepsData = emptyList()
         horizontalSwipeLeftStepsData = emptyList()
         horizontalSwipeRightStepsData = emptyList()
+        backspaceSwipeLeftMode = BACKSPACE_SWIPE_LEFT_CLEAR
+        backspaceSwipeLeftStepDp = DEFAULT_SWIPE_LEFT_STEP_DP
+        backspaceSwipeLeftStepDpEdit = null
+        spaceSwipeLeftStepDp = DEFAULT_SPACE_SWIPE_STEP_DP
+        spaceSwipeLeftStepDpEdit = null
         macroSwipeUpStepsData = emptyList()
         macroSwipeDownStepsData = emptyList()
 
@@ -769,7 +791,7 @@ class KeyEditorForm(
                 addHorizontalSwipeMacroEditors(keyData)
             }
 
-            "CapsKey", "ReturnKey", "BackspaceKey" -> {
+            "Shift_L", "ReturnKey", "BackspaceKey" -> {
                 if (!disableWeightEditing) {
                     val weightEdit = uiBuilder.createEditField(
                         getString(R.string.text_keyboard_layout_key_weight),
@@ -814,7 +836,13 @@ class KeyEditorForm(
                         }
                     }
                 ).forEach { fieldsContainer.addView(it) }
-                addHorizontalSwipeMacroEditors(keyData)
+                if (selectedType == "BackspaceKey") {
+                    // 退格键左滑固定为内置手势，只保留右滑宏编辑；左滑改为选择
+                    // 清删/内删，避免与自带滑删冲突。
+                    addBackspaceHorizontalSwipeEditors(keyData)
+                } else {
+                    addHorizontalSwipeMacroEditors(keyData)
+                }
             }
 
             "CommaKey", "LanguageKey" -> {
@@ -889,7 +917,24 @@ class KeyEditorForm(
                         }
                     }
                 ).forEach { fieldsContainer.addView(it) }
-                addHorizontalSwipeMacroEditors(keyData)
+                // 左右滑动定制已移除：不再显示左/右划宏编辑器，改为「左右滑动速度」调节栏，
+                // 控制光标模式下横向每移动一格所需的滑动距离（仅「滑动空格移动光标」开启时生效）。
+                spaceSwipeLeftStepDp = (keyData["swipeLeftStepDp"] as? Number)?.toFloat()
+                    ?.coerceIn(MIN_SWIPE_LEFT_STEP_DP, MAX_SWIPE_LEFT_STEP_DP)
+                    ?: DEFAULT_SPACE_SWIPE_STEP_DP
+                val spaceStepText = if (spaceSwipeLeftStepDp % 1f == 0f) {
+                    spaceSwipeLeftStepDp.toInt().toString()
+                } else {
+                    spaceSwipeLeftStepDp.toString()
+                }
+                val (spaceStepContainer, spaceStepEdit) = uiBuilder.createEditField(
+                    getString(R.string.text_keyboard_layout_space_swipe_step_dp),
+                    spaceStepText
+                )
+                spaceStepEdit.inputType = android.text.InputType.TYPE_CLASS_NUMBER or
+                    android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+                spaceSwipeLeftStepDpEdit = spaceStepEdit
+                fieldsContainer.addView(spaceStepContainer)
             }
 
             "NumPadKey" -> {
@@ -1287,8 +1332,89 @@ class KeyEditorForm(
         ).forEach { fieldsContainer.addView(it) }
     }
 
+    /**
+     * 退格键的左滑事件不再保存宏：左滑固定为内置手势，只保留清删/滑删模式；
+     * 右滑仍按普通宏编辑。删动速度（每字滑动 dp）对两种模式都生效。
+     */
+    private fun addBackspaceHorizontalSwipeEditors(sourceKeyData: Map<String, Any?>) {
+        backspaceSwipeLeftMode = (sourceKeyData["swipeLeftMode"] as? String)
+            ?.takeIf { it == BACKSPACE_SWIPE_LEFT_INNER }
+            ?: BACKSPACE_SWIPE_LEFT_CLEAR
+        backspaceSwipeLeftStepDp = (sourceKeyData["swipeLeftStepDp"] as? Number)?.toFloat()
+            ?.coerceIn(MIN_SWIPE_LEFT_STEP_DP, MAX_SWIPE_LEFT_STEP_DP)
+            ?: DEFAULT_SWIPE_LEFT_STEP_DP
+        horizontalSwipeLeftStepsData = emptyList()
+        horizontalSwipeRightStepsData = macroStepsOf(sourceKeyData["swipeRight"])
+        createMacroEditorButton(
+            title = getString(R.string.text_keyboard_layout_macro_swipe_left_event),
+            previewText = getString(
+                if (backspaceSwipeLeftMode == BACKSPACE_SWIPE_LEFT_INNER) {
+                    R.string.text_keyboard_layout_backspace_swipe_left_inner
+                } else {
+                    R.string.text_keyboard_layout_backspace_swipe_left_clear
+                }
+            ),
+            onClick = { showBackspaceSwipeLeftModePicker() }
+        ).forEach { fieldsContainer.addView(it) }
+        // 删动速度对清删与滑删都生效，两种模式下都显示调节栏。
+        val stepText = if (backspaceSwipeLeftStepDp % 1f == 0f) {
+            backspaceSwipeLeftStepDp.toInt().toString()
+        } else {
+            backspaceSwipeLeftStepDp.toString()
+        }
+        val (container, editText) = uiBuilder.createEditField(
+            getString(R.string.text_keyboard_layout_backspace_swipe_left_step_dp),
+            stepText
+        )
+        editText.inputType = android.text.InputType.TYPE_CLASS_NUMBER or
+            android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+        backspaceSwipeLeftStepDpEdit = editText
+        fieldsContainer.addView(container)
+        createMacroEditorButton(
+            title = getString(R.string.text_keyboard_layout_macro_swipe_right_event),
+            previewText = buildMacroPreview(horizontalSwipeRightStepsData),
+            onClick = {
+                openMacroEditor(
+                    horizontalSwipeRightStepsData,
+                    getString(R.string.text_keyboard_layout_macro_swipe_right_event),
+                    SLOT_SWIPE_RIGHT
+                ) { newSteps ->
+                    val draft = buildDraftKeyData()
+                    horizontalSwipeRightStepsData = newSteps
+                    applyHorizontalSwipeDraft(draft)
+                    keyData = draft
+                    rebuildFields()
+                    updateActionButtonState()
+                }
+            }
+        ).forEach { fieldsContainer.addView(it) }
+    }
+
+    private fun showBackspaceSwipeLeftModePicker() {
+        val values = arrayOf(BACKSPACE_SWIPE_LEFT_CLEAR, BACKSPACE_SWIPE_LEFT_INNER)
+        val labels = arrayOf(
+            getString(R.string.text_keyboard_layout_backspace_swipe_left_clear),
+            getString(R.string.text_keyboard_layout_backspace_swipe_left_inner)
+        )
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.text_keyboard_layout_macro_swipe_left_event)
+            .setSingleChoiceItems(labels, values.indexOf(backspaceSwipeLeftMode)) { dialog, which ->
+                backspaceSwipeLeftMode = values[which]
+                val draft = buildDraftKeyData()
+                keyData = draft
+                dialog.dismiss()
+                rebuildFields()
+                updateActionButtonState()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
     private fun applyHorizontalSwipeDraft(draft: MutableMap<String, Any?>) {
-        if (horizontalSwipeLeftStepsData.isNotEmpty()) {
+        if (selectedType == "BackspaceKey") {
+            // 左滑固定为内置手势，旧布局里的 swipeLeft 宏不再保留。
+            draft.remove("swipeLeft")
+        } else if (horizontalSwipeLeftStepsData.isNotEmpty()) {
             draft["swipeLeft"] = mapOf("macro" to horizontalSwipeLeftStepsData)
         } else {
             draft.remove("swipeLeft")
@@ -1297,6 +1423,36 @@ class KeyEditorForm(
             draft["swipeRight"] = mapOf("macro" to horizontalSwipeRightStepsData)
         } else {
             draft.remove("swipeRight")
+        }
+        if (selectedType == "BackspaceKey") {
+            // swipeLeftMode 仅滑删（Inner）写出，清删保持默认（不写字段）。
+            if (backspaceSwipeLeftMode == BACKSPACE_SWIPE_LEFT_INNER) {
+                draft["swipeLeftMode"] = BACKSPACE_SWIPE_LEFT_INNER
+            } else {
+                draft.remove("swipeLeftMode")
+            }
+            // 删动速度对清删与滑删都生效，两种模式下非默认值都写出。
+            val stepDp = backspaceSwipeLeftStepDpEdit?.text?.toString()
+                ?.toFloatOrNull()
+                ?.coerceIn(MIN_SWIPE_LEFT_STEP_DP, MAX_SWIPE_LEFT_STEP_DP)
+                ?: backspaceSwipeLeftStepDp
+            if (stepDp != DEFAULT_SWIPE_LEFT_STEP_DP) {
+                draft["swipeLeftStepDp"] = stepDp
+            } else {
+                draft.remove("swipeLeftStepDp")
+            }
+        }
+        if (selectedType == "SpaceKey") {
+            // 左右滑动定制已移除：swipeLeft/swipeRight 不再保存（上方通用分支已 remove）。
+            val spaceStepDp = spaceSwipeLeftStepDpEdit?.text?.toString()
+                ?.toFloatOrNull()
+                ?.coerceIn(MIN_SWIPE_LEFT_STEP_DP, MAX_SWIPE_LEFT_STEP_DP)
+                ?: spaceSwipeLeftStepDp
+            if (spaceStepDp != DEFAULT_SPACE_SWIPE_STEP_DP) {
+                draft["swipeLeftStepDp"] = spaceStepDp
+            } else {
+                draft.remove("swipeLeftStepDp")
+            }
         }
     }
 
@@ -1346,7 +1502,7 @@ class KeyEditorForm(
      */
     private fun addAltLabelOffsetEditors(keyData: Map<String, Any?>) {
         val hasDownLabel = selectedType in setOf(
-            "LayoutSwitchKey", "SymbolKey", "MacroKey", "CapsKey", "ReturnKey", "BackspaceKey"
+            "LayoutSwitchKey", "SymbolKey", "MacroKey", "Shift_L", "ReturnKey", "BackspaceKey"
         )
         val supportsAltLabel = hasDownLabel || selectedType in setOf(
             "AlphabetKey", "SpaceKey", "PlaceholderKey"
@@ -1859,7 +2015,7 @@ class KeyEditorForm(
                 }
             }
 
-            "CapsKey", "ReturnKey", "BackspaceKey" -> {
+            "Shift_L", "ReturnKey", "BackspaceKey" -> {
                 appendDirectionalSwipeLabels(draft)
                 if (!disableWeightEditing) {
                     parseWeight(simpleWeightEdit?.text?.toString())?.let { draft["weight"] = it }
@@ -2402,7 +2558,7 @@ class KeyEditorForm(
                 }
             }
 
-            "CapsKey", "ReturnKey", "BackspaceKey" -> {
+            "Shift_L", "ReturnKey", "BackspaceKey" -> {
                 appendDirectionalSwipeLabels(newKey)
                 if (!disableWeightEditing) {
                     parseWeight(simpleWeightEdit?.text?.toString())?.let { newKey["weight"] = it }
@@ -2561,8 +2717,14 @@ class KeyEditorForm(
 
         private val HORIZONTAL_SWIPE_TYPES = setOf(
             "LayoutSwitchKey", "SymbolKey", "MacroKey",
-            "CapsKey", "ReturnKey", "BackspaceKey", "SpaceKey"
+            "Shift_L", "ReturnKey", "BackspaceKey", "SpaceKey"
         )
+
+        /** 退格键左滑事件：清删（自带的按距离滑删）。 */
+        private const val BACKSPACE_SWIPE_LEFT_CLEAR = "clear"
+
+        /** 退格键左滑事件：内删（合成态滑动移光标、抬手删区间）。 */
+        private const val BACKSPACE_SWIPE_LEFT_INNER = "inner"
 
         /** 行设置写入的行级副标签偏移，编辑单个键时必须原样带回。 */
         private val ROW_SWIPE_OFFSET_FIELDS = listOf(

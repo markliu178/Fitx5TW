@@ -24,7 +24,7 @@
       {"type":"AlphabetKey","main":"L","alt":")"}
     ],
     [
-      {"type":"CapsKey","weight":0.15},
+      {"type":"Shift_L","weight":0.15},
       {"type":"AlphabetKey","main":"Z","alt":"'"},
       {"type":"AlphabetKey","main":"X","alt":":"},
       {"type":"AlphabetKey","main":"C","alt":"\""},
@@ -69,7 +69,7 @@
       {"type":"MacroKey","label":"九","tap":{"macro":[{"type":"layer","mode":"to","target":"rime:中文九键"}]},"swipe":{"macro":[{"type":"tap","keys":[{"fcitx":"colon"}]}]}}
     ],
     [
-      {"type":"CapsKey","weight":0.15},
+      {"type":"Shift_L","weight":0.15},
       {"type":"AlphabetKey","main":"Z","alt":"'"},
       {"type":"AlphabetKey","main":"X","alt":"<"},
       {"type":"AlphabetKey","main":"C","alt":"\""},
@@ -114,7 +114,7 @@
       {"type":"LanguageKey","weight":0.1}
     ],
     [
-      {"type":"CapsKey","weight":0.15},
+      {"type":"Shift_L","weight":0.15},
       {"type":"AlphabetKey","main":"Z","alt":"'"},
       {"type":"AlphabetKey","main":"X","alt":"<"},
       {"type":"AlphabetKey","main":"C","alt":"\""},
@@ -160,7 +160,7 @@
         {"type":"MacroKey","label":";","altLabel":":","weight":0.1,"tap":{"macro":[{"type":"tap","keys":[{"fcitx":"semicolon"}]}]},"swipe":{"macro":[{"type":"tap","keys":[{"fcitx":"colon"}]}]},"longPress":{"macro":[{"type":"layer","mode":"to","target":"test"}]},"longPressLabel":"去"}
       ],
       [
-        {"type":"CapsKey","weight":0.15},
+        {"type":"Shift_L","weight":0.15},
         {"type":"AlphabetKey","main":"Z","alt":"'"},
         {"type":"MacroKey","label":"X","altLabel":"<","weight":0.1,"tap":{"macro":[{"type":"tap","keys":[{"fcitx":"X"}]}]},"swipe":{"macro":[{"type":"tap","keys":[{"fcitx":"less"}]}]},"longPress":{"macro":[{"type":"edit","action":"cut"}]},"longPressLabel":"剪"},
         {"type":"MacroKey","label":"C","altLabel":"\"","weight":0.1,"tap":{"macro":[{"type":"tap","keys":[{"fcitx":"C"}]}]},"swipe":{"macro":[{"type":"tap","keys":[{"fcitx":"quotedbl"}]}]},"longPress":{"macro":[{"type":"edit","action":"copy"}]},"longPressLabel":"抄"},

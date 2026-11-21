@@ -547,7 +547,6 @@
     <string name="delete_theme">Theme löschen</string>
     <string name="delete_theme_msg">Theme "%1$s" wirklich löschen?</string>
     <string name="disable_it">Deaktivieren</string>
-    <string name="duplicate_builtin_theme">Integriertes Theme duplizieren…</string>
     <string name="edit_fontset">Schriftarteinstellungen</string>
     <string name="edit_theme">Theme bearbeiten</string>
     <string name="editor_info_inspector">EditorInfo-Inspektor</string>
