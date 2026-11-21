@@ -147,11 +147,10 @@ internal class DirectRimeConfig(private val context: Context) {
     }.getOrDefault(false)
 
     /**
-     * librime persists an absolute sync_dir in installation.yaml. Profiles moved from data/
-     * to rime/ (or imported with a copied installation.yaml) keep syncing into a directory
-     * that no longer exists or that this app cannot write, which makes every deployment and
-     * dictionary sync fail. Usable user sync directories are kept; anything else is pointed
-     * at the profile's own sync/ directory, migrating readable snapshots first.
+     * librime persists an absolute sync_dir in installation.yaml. Profiles copied from other
+     * clients keep syncing into a foreign directory (often under Download/), where this app
+     * can read but not reliably overwrite, so every deployment and dictionary sync fails.
+     * Point it at the profile's own sync/ directory, migrating readable snapshots first.
      */
     private fun normalizeSyncDirectory(profile: File) {
         val file = File(profile, "installation.yaml")
@@ -164,21 +163,34 @@ internal class DirectRimeConfig(private val context: Context) {
         val recorded = runCatching { File(recordedText).canonicalFile }.getOrNull() ?: return
         val desired = runCatching { File(profile, "sync").canonicalFile }.getOrNull() ?: return
         if (recorded == desired) return
-        val appRoot = runCatching { root.canonicalFile }.getOrNull() ?: return
-        val insideApp = recorded.path.startsWith(appRoot.path + File.separator)
-        // A user sync directory that this app can still write is intentional; keep it.
-        if (!insideApp && canUseAsSyncDirectory(recorded)) return
         migrateSyncData(recorded, desired)
         lines[index] = "sync_dir: ${desired.path}"
         runCatching { FileUtil.writeAtomically(file, lines.joinToString("\n", postfix = "\n")) }
     }
 
-    /** Whether librime can create files in [dir]; a missing directory needs a writable parent. */
-    private fun canUseAsSyncDirectory(dir: File): Boolean {
-        var existing = dir
-        while (!existing.exists() && existing.parentFile != null) existing = existing.parentFile!!
-        return existing.isDirectory && existing.canRead() && existing.canWrite() &&
-            !hasUnwritableEntries(existing, 0)
+    /** The profile's YAML lists schemas that were not copied, which makes deploy fail. */
+    fun deployFailureMessage(): String {
+        val profile = user ?: return "部署失败，请检查方案文件后重新部署"
+        val listed = runCatching {
+            val text = File(profile, "default.yaml").takeIf { it.isFile }?.readLines().orEmpty()
+            val start = text.indexOfFirst { it.trimStart().startsWith("schema_list:") }
+            if (start < 0) return@runCatching emptyList()
+            val names = mutableListOf<String>()
+            for (line in text.drop(start + 1)) {
+                val trimmed = line.trim()
+                if (trimmed.isEmpty()) continue
+                if (!line.startsWith(" ") && !line.startsWith("\t")) break
+                val name = trimmed.removePrefix("-").trim().substringAfter("schema:", "").trim()
+                if (name.isNotEmpty() && !name.startsWith("#")) names += name
+            }
+            names
+        }.getOrDefault(emptyList())
+        val missing = listed.filter { name ->
+            File(profile, "$name.schema.yaml").let { !it.isFile }
+        }.distinct()
+        if (missing.isEmpty()) return "部署失败，请检查方案文件后重新部署"
+        return "部署失败：方案列表引用了未复制的输入方案 ${missing.joinToString("、")}；" +
+            "请把对应的 .schema.yaml 及其词库一并复制到方案目录，或从 default.yaml 中移除后重新部署"
     }
 
     /** Copy readable sync snapshots so a rewritten sync_dir keeps the imported dictionaries. */

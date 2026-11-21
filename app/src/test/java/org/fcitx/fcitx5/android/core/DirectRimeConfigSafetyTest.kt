@@ -171,6 +171,28 @@ class DirectRimeConfigSafetyTest {
         assertEquals("imported", File(to, "other/new.userdb.txt").readText())
     }
 
+    @Test fun writableExternalSyncDirectoryIsRedirectedToTheProfile() {
+        val config = DirectRimeConfig(context()).apply { load(); create("a") }
+        val shared = temporary.newFolder("shared")
+        File(shared, "a.userdb.txt").writeText("snapshot")
+        File(config.user!!, "installation.yaml").writeText("sync_dir: ${shared.path}\n")
+        config.switch("a")
+        val desired = File(config.user!!, "sync").canonicalFile
+        assertEquals("sync_dir: ${desired.path}\n", File(config.user!!, "installation.yaml").readText())
+        assertEquals("snapshot", File(desired, "a.userdb.txt").readText())
+    }
+
+    @Test fun deployFailureNamesSchemasMissingFromTheCopy() {
+        val config = DirectRimeConfig(context()).apply { load(); create("a") }
+        File(config.user!!, "default.yaml").writeText(
+            "schema_list:\n  - schema: wanxiang_pro\n  - schema: luna_pinyin\nother: 1\n"
+        )
+        File(config.user!!, "wanxiang_pro.schema.yaml").writeText("name: x\n")
+        val message = config.deployFailureMessage()
+        assertTrue(message, message.contains("luna_pinyin"))
+        assertFalse(message, message.contains("wanxiang_pro"))
+    }
+
     @Test fun updatingACapturedDirectoryIsRejectedAfterSwitchingProfiles() {
         val config = DirectRimeConfig(context()).apply { load(); create("rime") }
         val captured = config.user!!.canonicalPath
