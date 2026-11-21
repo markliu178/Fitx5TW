@@ -649,6 +649,9 @@ class DirectRimeBackend(context: Context) : InputEngine {
     private suspend fun maintain(refreshAfterOperation: Boolean = true, operation: () -> Unit) =
         maintenanceCoordinator.run(refreshAfterOperation, operation)
     private suspend fun redeploy() = maintain {
+        // Files copied in while the engine is running still need the ownership repair and the
+        // sync_dir fallback before librime starts deploying.
+        config.normalizeActiveSyncDirectory()
         if (started) check(Native.deploy()) { "部署失败，请检查方案文件后重新部署" }
         else restartNative()
     }
@@ -763,6 +766,7 @@ class DirectRimeBackend(context: Context) : InputEngine {
             "deploy" -> redeploy()
             "sync" -> synchronize()
             "schema-selector" -> maintain {
+                config.normalizeActiveSyncDirectory()
                 val command = DirectRimeManagementCommands.schemaSelection(config)
                 check(Native.selectSchemas(command.ids.toTypedArray())) { "无法保存输入方案选择" }
                 check(Native.deploy()) { "部署失败，请检查方案文件" }

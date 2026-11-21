@@ -3,6 +3,7 @@ package org.fcitx.fcitx5.android.core
 
 import android.content.Context
 import android.os.Build
+import android.util.Log
 import org.fcitx.fcitx5.android.data.RimeDataDirectoryState
 import org.fcitx.fcitx5.android.data.RimeProfileRestorePlan
 import org.fcitx.fcitx5.android.data.WanxiangUpdateTransaction
@@ -36,6 +37,7 @@ internal class DirectRimeConfig(private val context: Context) {
         org.fcitx.fcitx5.android.data.UserDataRestoreRuntime.requirePathReady(context, root)
         dataRoot.mkdirs()
         directoryMoves.recover()
+        purgeDeletedResidues()
         profiles.clear()
         val saved = Ini.parseIniFromFile(directoryFile)?.core
         val names = saved?.findByName("Profiles")?.value.orEmpty().lines()
@@ -64,7 +66,13 @@ internal class DirectRimeConfig(private val context: Context) {
             val userDir = profiles[selected] ?: return
             org.fcitx.fcitx5.android.data.UserDataRestoreRuntime.requirePathReady(context, userDir)
             userDir.mkdirs()
-            normalizeSyncDirectory(userDir)
+            // Copied-in files may belong to another UID; take them over before librime opens
+            // the profile, otherwise deployment and dictionary sync fail on write access.
+            // Keep startup alive and surface the reason in the directory manager instead.
+            runCatching {
+                repairCopiedProfile(userDir)
+                normalizeSyncDirectory(userDir)
+            }.onFailure { error = it.message ?: "无法准备方案目录：${userDir.path}" }
             // Finish an interrupted resource update before librime can open the profile.
             WanxiangUpdateTransaction.recover(userDir)
         }
@@ -141,24 +149,197 @@ internal class DirectRimeConfig(private val context: Context) {
     /**
      * librime persists an absolute sync_dir in installation.yaml. Profiles moved from data/
      * to rime/ (or imported with a copied installation.yaml) keep syncing into a directory
-     * that no longer exists, which makes every dictionary sync fail. Rewrite only locations
-     * that live inside our own external files directory; explicit user sync directories stay.
+     * that no longer exists or that this app cannot write, which makes every deployment and
+     * dictionary sync fail. Usable user sync directories are kept; anything else is pointed
+     * at the profile's own sync/ directory, migrating readable snapshots first.
      */
     private fun normalizeSyncDirectory(profile: File) {
         val file = File(profile, "installation.yaml")
-        if (!file.isFile || file.length() > 64 * 1024 || !file.canWrite()) return
+        if (!file.isFile || file.length() > 64 * 1024) return
+        if (!file.canWrite()) takeOverFile(file)
         val lines = runCatching { file.readLines().toMutableList() }.getOrNull() ?: return
         val index = lines.indexOfFirst { it.startsWith("sync_dir:") }
         if (index < 0) return
-        val recorded = runCatching {
-            File(lines[index].substringAfter(':').trim().trim('"', '\'')).canonicalFile
-        }.getOrNull() ?: return
+        val recordedText = lines[index].substringAfter(':').trim().trim('"', '\'')
+        val recorded = runCatching { File(recordedText).canonicalFile }.getOrNull() ?: return
         val desired = runCatching { File(profile, "sync").canonicalFile }.getOrNull() ?: return
         if (recorded == desired) return
         val appRoot = runCatching { root.canonicalFile }.getOrNull() ?: return
-        if (!recorded.path.startsWith(appRoot.path + File.separator)) return
+        val insideApp = recorded.path.startsWith(appRoot.path + File.separator)
+        // A user sync directory that this app can still write is intentional; keep it.
+        if (!insideApp && canUseAsSyncDirectory(recorded)) return
+        migrateSyncData(recorded, desired)
         lines[index] = "sync_dir: ${desired.path}"
         runCatching { FileUtil.writeAtomically(file, lines.joinToString("\n", postfix = "\n")) }
+    }
+
+    /** Whether librime can create files in [dir]; a missing directory needs a writable parent. */
+    private fun canUseAsSyncDirectory(dir: File): Boolean {
+        var existing = dir
+        while (!existing.exists() && existing.parentFile != null) existing = existing.parentFile!!
+        return existing.isDirectory && existing.canRead() && existing.canWrite() &&
+            !hasUnwritableEntries(existing, 0)
+    }
+
+    /** Copy readable sync snapshots so a rewritten sync_dir keeps the imported dictionaries. */
+    internal fun migrateSyncData(from: File, to: File) {
+        val sourceRoot = runCatching { from.canonicalFile }.getOrNull() ?: return
+        if (sourceRoot == to.canonicalFile || !sourceRoot.isDirectory || !sourceRoot.canRead()) return
+        check(to.exists() || to.mkdirs()) { "无法创建方案同步目录：${to.path}" }
+        fun copy(src: File, dst: File, depth: Int) {
+            // Hidden entries are locks and temporary merge databases, never dictionary data.
+            if (depth > 8 || !src.canRead() || src.name.startsWith(".")) return
+            if (dst.exists()) return
+            if (src.isDirectory) {
+                if (!dst.mkdirs()) return
+                src.listFiles().orEmpty().forEach { copy(it, File(dst, it.name), depth + 1) }
+            } else if (src.isFile) {
+                runCatching { src.copyTo(dst, overwrite = false) }
+            }
+        }
+        sourceRoot.listFiles().orEmpty().forEach { copy(it, File(to, it.name), 0) }
+    }
+
+    /**
+     * Files copied in through Shizuku/root keep another UID, so the app can read but not write
+     * them. Replace them with app-owned copies before librime needs write access.
+     */
+    private fun repairCopiedProfile(profile: File) {
+        if (!profile.canWrite()) {
+            if (isInternal(profile.name, profile)) {
+                throw IllegalStateException(
+                    "方案目录“${profile.name}”不可写，可能是以 root/Shizuku 复制进来的；请在文件管理器里修改权限，或重新导入方案"
+                )
+            }
+            return
+        }
+        profile.listFiles().orEmpty()
+            .filter { it.isFile && it.name.endsWith(".yaml") && !it.canWrite() }
+            .forEach(::takeOverFile)
+        profile.listFiles().orEmpty()
+            .filter { it.isDirectory && it.name.endsWith(".userdb") && hasUnwritableEntries(it, 0) }
+            .forEach(::takeOverDirectory)
+        discardForeignBuild(profile)
+        // A failed snapshot merge can leave a temporary database behind; its stale lock makes
+        // every later sync fail, so drop it and let librime recreate it.
+        File(profile, ".temp.userdb").takeIf { it.isDirectory }?.let {
+            FileUtil.removeFile(it).onFailure { cause -> Log.w(TAG, "无法清理临时词典：${it.path}", cause) }
+        }
+        val sync = File(profile, "sync")
+        if (sync.isDirectory && hasUnwritableEntries(sync, 0)) takeOverDirectory(sync)
+    }
+
+    /** Replace one foreign-owned file with an app-owned copy, keeping its content. */
+    private fun takeOverFile(file: File) {
+        if (file.canWrite()) return
+        require(file.isFile && file.canRead()) { "无法读取方案文件：${file.path}" }
+        val temp = File(file.parentFile, ".${file.name}.${UUID.randomUUID()}.takeover")
+        try {
+            check(runCatching { file.copyTo(temp, overwrite = true) }.isSuccess) {
+                "无法复制方案文件：${file.path}"
+            }
+            check(file.renameTo(File(file.path + ".stale-${UUID.randomUUID()}"))) {
+                "无法替换方案文件：${file.path}"
+            }
+            check(temp.renameTo(file)) { "无法安装方案文件：${file.path}" }
+            Log.w(TAG, "已接管复制进来的方案文件：${file.path}")
+        } finally {
+            if (temp.exists()) FileUtil.removeFile(temp)
+        }
+    }
+
+    /** Same as [takeOverFile] for a directory (typically a copied LevelDB user dictionary). */
+    private fun takeOverDirectory(dir: File) {
+        if (dir.canWrite()) return
+        if (!dir.canRead()) {
+            throw IllegalStateException(
+                "无法读取方案目录：${dir.path}；可能是以 root/Shizuku 复制进来的，请在文件管理器里修改权限后重试"
+            )
+        }
+        val temp = File(dir.parentFile, ".${dir.name}.${UUID.randomUUID()}.takeover")
+        try {
+            copyDirectory(dir, temp)
+            val stale = File(dir.parentFile, "${dir.name}.stale-${UUID.randomUUID()}")
+            check(dir.renameTo(stale)) { "无法替换方案目录：${dir.path}" }
+            if (!temp.renameTo(dir)) {
+                stale.renameTo(dir)
+                throw IllegalStateException("无法安装方案目录：${dir.path}")
+            }
+            FileUtil.removeFile(stale).onFailure {
+                Log.w(TAG, "无法清理旧的方案目录副本：${stale.path}", it)
+            }
+            Log.w(TAG, "已接管复制进来的方案目录：${dir.path}")
+        } finally {
+            if (temp.exists()) FileUtil.removeFile(temp)
+        }
+    }
+
+    private fun copyDirectory(src: File, dst: File) {
+        val root = runCatching { src.canonicalFile }.getOrNull()
+            ?: throw IllegalStateException("无法读取方案目录：${src.path}")
+        check(dst.mkdirs()) { "无法创建临时方案目录：${dst.path}" }
+        fun copy(from: File, to: File) {
+            if (!from.canRead()) throw IllegalStateException("无法读取方案文件：${from.path}")
+            val canonical = runCatching { from.canonicalFile }.getOrNull()
+            if (canonical == null || (canonical != root &&
+                    !canonical.path.startsWith(root.path + File.separator))) {
+                throw IllegalStateException("方案目录中包含符号链接，无法接管：${from.path}")
+            }
+            if (from.isDirectory) {
+                check(to.isDirectory || to.mkdirs()) { "无法创建临时方案目录：${to.path}" }
+                val children = from.listFiles()
+                    ?: throw IllegalStateException("无法读取方案目录：${from.path}")
+                children.forEach { copy(it, File(to, it.name)) }
+            } else if (from.isFile) {
+                check(runCatching { from.copyTo(to, overwrite = false) }.isSuccess) {
+                    "无法复制方案文件：${from.path}"
+                }
+            }
+        }
+        copy(src, dst)
+    }
+
+    /**
+     * A build/ directory copied from another device may reference missing schemas and may be
+     * partly unwritable. It is always reproducible, so move it out of the way and rebuild.
+     */
+    private fun discardForeignBuild(profile: File) {
+        val build = File(profile, "build")
+        if (!build.isDirectory || !hasUnwritableEntries(build, 0)) return
+        val stale = File(profile, ".build-${UUID.randomUUID()}")
+        if (build.renameTo(stale)) {
+            FileUtil.removeFile(stale).onFailure {
+                Log.w(TAG, "无法清理复制进来的 build 目录：${stale.path}", it)
+            }
+            Log.w(TAG, "已丢弃复制进来的 build 目录：${profile.path}")
+        }
+    }
+
+    /** True when [dir] or a shallow descendant cannot be written by this app. */
+    private fun hasUnwritableEntries(dir: File, depth: Int): Boolean {
+        if (!dir.isDirectory || !dir.canRead() || !dir.canWrite() || !dir.canExecute()) return true
+        if (depth >= 2) return false
+        for (entry in dir.listFiles().orEmpty()) {
+            if (entry.isFile && !entry.canWrite()) return true
+            if (entry.isDirectory && hasUnwritableEntries(entry, depth + 1)) return true
+        }
+        return false
+    }
+
+    /** Trash left by a delete whose cleanup failed; permissions may have been fixed since. */
+    private fun purgeDeletedResidues() {
+        dataRoot.listFiles().orEmpty().forEach { file ->
+            if (!file.isDirectory || !file.name.startsWith(".deleted-")) return@forEach
+            var result = FileUtil.removeFile(file)
+            if (result.isFailure && hasUnwritableEntries(file, 0)) {
+                // Take over files copied in with another UID, then retry the trash removal.
+                runCatching { repairCopiedProfile(file) }
+                result = FileUtil.removeFile(file)
+            }
+            result.onFailure {
+                Log.w(TAG, "无法清理已删除方案的残留目录：${file.path}", it)
+            }
+        }
     }
 
     fun requireUpdateTarget(name: String, path: String) {
@@ -244,6 +425,7 @@ internal class DirectRimeConfig(private val context: Context) {
         org.fcitx.fcitx5.android.data.UserDataRestoreRuntime.requirePathReady(context, target)
         check(target.isDirectory || target.mkdirs()) { "无法打开目录" }
         check(target.canRead() && target.canWrite()) { "无法访问目录，请检查存储权限" }
+        repairCopiedProfile(target)
         normalizeSyncDirectory(target)
         WanxiangUpdateTransaction.recover(target)
         persistDirectories(profiles, name)
@@ -289,11 +471,14 @@ internal class DirectRimeConfig(private val context: Context) {
         // A folder removed outside the app only needs to be unregistered.
         val moveData = internal && file.exists()
         val next = LinkedHashMap(profiles).apply { remove(name) }
+        val nextCurrent = if (current == name) next.keys.firstOrNull() else current
         if (moveData) {
             requireNoNestedProfiles(name, file)
-            directoryMoves.prepare(name, ".deleted-${UUID.randomUUID()}", true, directoriesText(next, current))
+            // Foreign-owned files cannot be unlinked; take them over so the profile is really
+            // removed instead of leaving a .deleted-* residue that the user still sees.
+            if (hasUnwritableEntries(file, 0)) repairCopiedProfile(file)
+            directoryMoves.prepare(name, ".deleted-${UUID.randomUUID()}", true, directoriesText(next, nextCurrent))
         }
-        val nextCurrent = if (current == name) next.keys.firstOrNull() else current
         try { persistDirectories(next, nextCurrent) }
         catch (e: Exception) {
             if (moveData) try { directoryMoves.recover() } catch (recovery: Exception) { e.addSuppressed(recovery) }
@@ -337,4 +522,8 @@ internal class DirectRimeConfig(private val context: Context) {
     }
 
     private fun hex(value: String) = value.toByteArray().joinToString("") { "%02x".format(it.toInt() and 255) }
+
+    private companion object {
+        const val TAG = "DirectRimeConfig"
+    }
 }

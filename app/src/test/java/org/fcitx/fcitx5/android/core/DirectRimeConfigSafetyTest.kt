@@ -131,6 +131,46 @@ class DirectRimeConfigSafetyTest {
         assertEquals("keep", File(outside, "personal.dict.yaml").readText())
     }
 
+    @Test fun deletingTheCurrentProfileKeepsItsSuccessorSelected() {
+        val context = context()
+        val config = DirectRimeConfig(context).apply { load(); create("rime"); create("second") }
+        assertEquals("rime", config.current)
+        config.delete("rime")
+        assertEquals("second", config.current)
+        assertEquals(listOf("second"), config.directoryState().findByName("Profiles")!!.value.lines())
+        assertFalse(File(config.dataRoot, "rime").exists())
+        val reloaded = DirectRimeConfig(context).apply { load() }
+        assertEquals("second", reloaded.current)
+        assertEquals(listOf("second"), reloaded.directoryState().findByName("Profiles")!!.value.lines())
+    }
+
+    @Test fun unusableForeignSyncDirectoryIsRewrittenToTheProfile() {
+        val config = DirectRimeConfig(context()).apply { load(); create("a") }
+        // A regular file cannot host a directory, so this recorded sync_dir is unusable.
+        val blocker = File(temporary.root, "blocker").apply { writeText("x") }
+        File(config.user!!, "installation.yaml").writeText(
+            "installation_id: copied\nsync_dir: ${File(blocker, "sync").path}\n"
+        )
+        config.switch("a")
+        assertEquals(
+            "installation_id: copied\nsync_dir: ${File(config.user!!, "sync").canonicalPath}\n",
+            File(config.user!!, "installation.yaml").readText()
+        )
+    }
+
+    @Test fun migratingForeignSyncNeverOverwritesLocalSnapshots() {
+        val config = DirectRimeConfig(context()).apply { load() }
+        val from = temporary.newFolder("from")
+        val to = temporary.newFolder("to")
+        File(from, "other").mkdirs()
+        File(from, "other/new.userdb.txt").writeText("imported")
+        File(from, "local.userdb.txt").writeText("old")
+        File(to, "local.userdb.txt").writeText("current")
+        config.migrateSyncData(from, to)
+        assertEquals("current", File(to, "local.userdb.txt").readText())
+        assertEquals("imported", File(to, "other/new.userdb.txt").readText())
+    }
+
     @Test fun updatingACapturedDirectoryIsRejectedAfterSwitchingProfiles() {
         val config = DirectRimeConfig(context()).apply { load(); create("rime") }
         val captured = config.user!!.canonicalPath

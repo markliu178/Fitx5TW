@@ -32,8 +32,11 @@ internal class DirectoryMoveJournal(private val dataRoot: File, private val meta
         val (from, to) = paths(move)
         val committed = metadata.isFile && metadata.readText() == move.metadataAfter
         if (committed) {
-            if (move.deleteOnCommit) FileUtil.removeFile(to).getOrThrow()
-            else check(to.isDirectory) { "方案改名恢复失败，数据目录缺失" }
+            if (move.deleteOnCommit) {
+                // Files copied in with another UID may still refuse deletion. Keep the journal
+                // so a later start retries, and never turn this into a startup failure.
+                if (FileUtil.removeFile(to).isFailure) return
+            } else check(to.isDirectory) { "方案改名恢复失败，数据目录缺失" }
         } else if (to.exists()) {
             check(!from.exists() && to.renameTo(from)) { "方案目录恢复发生冲突，数据保留在 ${to.path}" }
         } else check(from.isDirectory) { "方案目录恢复失败，数据目录缺失" }
