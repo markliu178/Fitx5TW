@@ -170,7 +170,14 @@
     <string name="key_border">启用按键边框</string>
     <string name="brightness">亮度</string>
     <string name="key_radius">按键圆角半径</string>
-    <string name="special_key_radius">回车/切层键圆角半径</string>
+    <string name="special_key_radius_group">特殊按键圆角半径</string>
+    <string name="special_key_radius_group_summary">点进去分别调整各个特殊按键的圆角</string>
+    <string name="special_key_radius_return">回车键</string>
+    <string name="special_key_radius_layout_switch">切层键（123）</string>
+    <string name="special_key_radius_space">空格键</string>
+    <string name="special_key_radius_backspace">退格键</string>
+    <string name="special_key_radius_shift">Shift 键</string>
+    <string name="special_key_radius_lang">中英切换键</string>
     <string name="preedit_radius">编码区圆角半径</string>
     <string name="toolbar_radius">工具栏上方圆角半径</string>
     <string name="text_editing_button_radius">文本编辑按钮圆角半径</string>
@@ -548,7 +555,7 @@
     <string name="font_size_editor_hint">拖动调整字体大小 (%1$d–%2$d sp)</string>
     <string name="font_weight_value">W%1$d</string>
     <string name="font_weight_editor_title">%1$s - 字重</string>
-    <string name="font_weight_editor_hint">拖动调整字重（%1$d–%2$d，400 为常规）；Android 9 以下仅区分常规与粗体。</string>
+    <string name="font_weight_editor_hint">拖动调整字重（%1$d–%2$d，400 为常规）；单字重字体在 600 及以上才显示为加粗。</string>
     <string name="candidates_padding">候选词边距</string>
     <string name="candidate_highlight_radius">候选项高亮圆角半径</string>
     <string name="highlight_first_candidate">默认高亮第一个候选</string>

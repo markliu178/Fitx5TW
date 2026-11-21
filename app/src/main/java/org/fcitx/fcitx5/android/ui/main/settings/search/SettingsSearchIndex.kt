@@ -257,7 +257,7 @@ object SettingsSearchIndex {
         R.string.alt_label_on_side to "alt_label_on_side",
         R.string.alt_label_side to "alt_label_side",
         R.string.special_key_oval_shape to "special_key_oval_shape",
-        R.string.special_key_radius to "special_key_radius",
+        R.string.special_key_radius_group to "special_key_radius_group",
         R.string.alt_label_opacity to "alt_label_opacity",
         R.string.text_editing_button_radius to "text_editing_button_radius",
         R.string.clipboard_entry_radius to "clipboard_entry_radius",
@@ -487,8 +487,8 @@ object SettingsSearchIndex {
             route = SettingsRoute.Theme
         ),
         SettingsSearchEntry(
-            R.string.special_key_radius, P_THEME,
-            listOf("special key radius", "回车圆角", "切层键圆角", "操作键圆角", "回车键", "圆角", "radius"),
+            R.string.special_key_radius_group, P_THEME,
+            listOf("special key radius", "特殊按键圆角", "回车圆角", "切层键圆角", "空格圆角", "退格圆角", "圆角", "radius"),
             route = SettingsRoute.Theme
         ),
         SettingsSearchEntry(

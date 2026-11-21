@@ -63,6 +63,9 @@ object FontProviders {
     @Volatile
     private var needsRefresh = false
     private val fontSizeResultCache = HashMap<String, Float>()
+    private val fontWeightLock = Any()
+    @Volatile
+    private var fontWeightCache: Map<String, Int>? = null
 
     init {
         ensureListenerRegistered()
@@ -79,6 +82,9 @@ object FontProviders {
         synchronized(fontSizeResultCache) {
             fontSizeResultCache.clear()
         }
+        synchronized(fontWeightLock) {
+            fontWeightCache = null
+        }
         synchronized(refreshLock) {
             needsRefresh = true
         }
@@ -92,6 +98,9 @@ object FontProviders {
         provider.clearCache()
         synchronized(fontSizeResultCache) {
             fontSizeResultCache.clear()
+        }
+        synchronized(fontWeightLock) {
+            fontWeightCache = null
         }
         synchronized(refreshLock) {
             needsRefresh = true
@@ -154,6 +163,29 @@ object FontProviders {
             }
         }
         return resolved
+    }
+
+    /**
+     * 配置的字重（100–900），缺省 400。用于在单字重字体上以合成加粗体现粗体档位。
+     * 按字体键整体缓存，fontset 变化时清空（见 handleFontsetChanged / markNeedsRefresh）。
+     */
+    fun getFontWeight(key: String, default: Int = 400): Int {
+        val map = synchronized(fontWeightLock) {
+            fontWeightCache ?: run {
+                val parsed = runCatching {
+                    ConfigProviders.readFontsetPathMapSnapshot().getOrNull()?.value.orEmpty()
+                        .mapNotNull { (k, v) ->
+                            if (!k.endsWith("_weight")) return@mapNotNull null
+                            val weight = v.firstOrNull()?.trim()?.toIntOrNull()
+                                ?.coerceIn(100, 900) ?: return@mapNotNull null
+                            k.removeSuffix("_weight") to weight
+                        }.toMap()
+                }.getOrDefault(emptyMap())
+                fontWeightCache = parsed
+                parsed
+            }
+        }
+        return map[key] ?: default
     }
 
     /**

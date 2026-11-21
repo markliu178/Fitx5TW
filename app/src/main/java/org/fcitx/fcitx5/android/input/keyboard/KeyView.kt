@@ -88,14 +88,8 @@ abstract class KeyView(
         bordered = prefs.keyBorder.getValue()
         borderStroke = prefs.keyBorderStroke.getValue()
         rippled = prefs.keyRippleEffect.getValue()
-        radius = dp(
-            when (def.viewId) {
-                // 回车与切层键可单独设置圆角；药丸形态开启时本值不参与绘制。
-                R.id.button_return, R.id.button_layout_switch ->
-                    prefs.specialKeyRadius.getValue()
-                else -> prefs.keyRadius.getValue()
-            }.toFloat()
-        )
+        // 特殊按键各自独立的圆角（见 ThemePrefs.specialKeyRadiusFor），其余按键用 keyRadius。
+        radius = dp(prefs.specialKeyRadiusFor(def.viewId))
         val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         val hMarginPref =
             if (landscape) prefs.keyHorizontalMarginLandscape else prefs.keyHorizontalMargin

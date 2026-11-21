@@ -14,6 +14,7 @@ import org.fcitx.fcitx5.android.R
 import org.fcitx.fcitx5.android.data.prefs.ManagedPreference
 import org.fcitx.fcitx5.android.data.prefs.ManagedPreferenceCategory
 import org.fcitx.fcitx5.android.data.prefs.ManagedPreferenceEnum
+import org.fcitx.fcitx5.android.data.prefs.ManagedPreferenceUi
 
 class ThemePrefs(sharedPreferences: SharedPreferences) :
     ManagedPreferenceCategory(R.string.theme, sharedPreferences) {
@@ -122,16 +123,104 @@ class ThemePrefs(sharedPreferences: SharedPreferences) :
 
     val keyRadius = int(R.string.key_radius, "key_radius", 12, 0, 48, "dp")
 
-    /**
-     * 回车键（button_return）与切层键（button_layout_switch）的独立圆角。
-     * Gboard 风格药丸（[specialKeyOvalShape]）开启时这两枚键本就忽略圆角，此项自然失效；
-     * 关闭药丸后即由本项接管，其余按键仍使用 [keyRadius]。
-     */
-    val specialKeyRadius = int(
-        R.string.special_key_radius, "special_key_radius", 12, 0, 48, "dp",
-        // 关掉按键边框时回车是药丸、切层键没有底色，圆角本就不参与绘制。
-        enableUiOn = { keyBorder.getValue() && !specialKeyOvalShape.getValue() }
-    )
+    private fun specialKeyRadiusPref(key: String): ManagedPreference.PInt {
+        val pref = ManagedPreference.PInt(sharedPreferences, key, 12)
+        pref.register()
+        return pref
+    }
+
+    // 特殊按键（回车、切层、空格、退格、Shift、中英）各自独立的圆角，0–48dp。
+    // 它们不再受 keyRadius 影响；其余按键仍使用 keyRadius。
+    val specialKeyRadiusShift = specialKeyRadiusPref("special_key_radius_shift")
+    val specialKeyRadiusLayoutSwitch = specialKeyRadiusPref("special_key_radius_layout_switch")
+    val specialKeyRadiusBackspace = specialKeyRadiusPref("special_key_radius_backspace")
+    val specialKeyRadiusSpace = specialKeyRadiusPref("special_key_radius_space")
+    val specialKeyRadiusReturn = specialKeyRadiusPref("special_key_radius_return")
+    val specialKeyRadiusLang = specialKeyRadiusPref("special_key_radius_lang")
+
+    fun specialKeyRadiusFor(viewId: Int): Float = when (viewId) {
+        R.id.button_caps -> specialKeyRadiusShift.getValue()
+        R.id.button_layout_switch -> specialKeyRadiusLayoutSwitch.getValue()
+        R.id.button_backspace -> specialKeyRadiusBackspace.getValue()
+        R.id.button_space -> specialKeyRadiusSpace.getValue()
+        R.id.button_return -> specialKeyRadiusReturn.getValue()
+        R.id.button_lang -> specialKeyRadiusLang.getValue()
+        else -> keyRadius.getValue()
+    }.toFloat()
+
+    fun specialKeyRadiiSignature(): String = listOf(
+        specialKeyRadiusShift, specialKeyRadiusLayoutSwitch, specialKeyRadiusBackspace,
+        specialKeyRadiusSpace, specialKeyRadiusReturn, specialKeyRadiusLang
+    ).joinToString(",") { it.getValue().toString() }
+
+    init {
+        val groupUi = object : ManagedPreferenceUi<androidx.preference.Preference>("special_key_radius_group") {
+            override fun createUi(context: android.content.Context) =
+                androidx.preference.Preference(context).apply {
+                    key = "special_key_radius_group"
+                    isIconSpaceReserved = false
+                    isSingleLineTitle = false
+                    setTitle(R.string.special_key_radius_group)
+                    setSummary(R.string.special_key_radius_group_summary)
+                    setOnPreferenceClickListener {
+                        showSpecialKeyRadiusDialog(context)
+                        true
+                    }
+                }
+        }
+        groupUi.registerUi()
+    }
+
+    private fun showSpecialKeyRadiusDialog(context: android.content.Context) {
+        val density = context.resources.displayMetrics.density
+        val dp = { v: Int -> (v * density).toInt() }
+        val container = android.widget.LinearLayout(context).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(dp(20), dp(8), dp(20), 0)
+        }
+        val rows = listOf(
+            R.string.special_key_radius_shift to specialKeyRadiusShift,
+            R.string.special_key_radius_layout_switch to specialKeyRadiusLayoutSwitch,
+            R.string.special_key_radius_backspace to specialKeyRadiusBackspace,
+            R.string.special_key_radius_space to specialKeyRadiusSpace,
+            R.string.special_key_radius_return to specialKeyRadiusReturn,
+            R.string.special_key_radius_lang to specialKeyRadiusLang
+        )
+        val values = rows.map { (title, pref) ->
+            val valueView = android.widget.TextView(context).apply {
+                text = context.getString(title) + "  " + pref.getValue() + "dp"
+                textSize = 14f
+                setPadding(0, dp(10), 0, 0)
+            }
+            val seekBar = android.widget.SeekBar(context).apply {
+                max = 48
+                progress = pref.getValue()
+            }
+            seekBar.setOnSeekBarChangeListener(object :
+                android.widget.SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(
+                    sb: android.widget.SeekBar, progress: Int, fromUser: Boolean
+                ) {
+                    valueView.text = context.getString(title) + "  " + progress + "dp"
+                }
+                override fun onStartTrackingTouch(sb: android.widget.SeekBar) {}
+                override fun onStopTrackingTouch(sb: android.widget.SeekBar) {}
+            })
+            container.addView(valueView)
+            container.addView(seekBar)
+            pref to seekBar
+        }
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(context)
+            .setTitle(R.string.special_key_radius_group)
+            .setView(container)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                values.forEach { (pref, seekBar) -> pref.setValue(seekBar.progress) }
+                // 药丸形态会忽略圆角，改完圆角后自动关闭，保证设置立即生效。
+                if (specialKeyOvalShape.getValue()) specialKeyOvalShape.setValue(false)
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
 
     val preeditRadius = int(R.string.preedit_radius, "preedit_radius", 0, 0, 48, "dp")
 
